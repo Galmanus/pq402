@@ -33,7 +33,10 @@ const PQ402 = process.env.PQ402_URL || "http://localhost:4402";
 const PROVER = process.env.PQ_PROVER || join(HERE, "bin", "prove_action");
 const CONTRACT_ID =
   process.env.PQ_CONTRACT_ID || "CA6QM6DRPVYRHFWEWNATDIKLL4P47XBI2OWVL7226WHHOTFEY2W2JKET";
-const NETWORK = process.env.STELLAR_NETWORK || "testnet";
+// The stellar CLI's --network takes a CONFIG NAME ("testnet"); STELLAR_NETWORK
+// in .env is the CAIP-2 id x402 wants ("stellar:testnet"). Reading that one
+// here fails with "Invalid name", which is the same trap server.mjs fell into.
+const NETWORK = process.env.PQ_NETWORK || "testnet";
 const SOURCE = process.env.PQ_SOURCE || "riverrun-registry-deployer";
 const WORK = join(tmpdir(), `pq402-booth-${process.pid}`);
 mkdirSync(WORK, { recursive: true });
@@ -112,12 +115,29 @@ async function pay() {
     onchain: true,
   });
 
-  const prem = await fetch(`${PQ402}/premium`, {
-    headers: { "x-pq-pass": unlock.pass, "x-payment": "mock-settled" },
+  // The payment goes through the CLI plugin rather than being reimplemented
+  // here. x402 v2 wants signed Soroban authorization entries, and a second
+  // implementation of that is a second place to get the four protocol details
+  // wrong — the booth used to send the literal string "mock-settled", which
+  // stopped meaning anything the day settlement became real.
+  at("agente paga via x402 (entradas de autorização assinadas)…", { pending: true });
+  const tpay = Date.now();
+  const out = await sh("node", [
+    join(HERE, "cli", "bin", "stellar-agent-pay.mjs"),
+    `${PQ402}/premium`,
+    "--pq-pass", unlock.pass,
+    "--source", process.env.PAY_SOURCE || "pq402-payer",
+    "--yes",
+    "--quiet",
+  ]).catch((e) => {
+    throw new Error(`pagamento recusado: ${String(e.stderr || e.message).slice(0, 200)}`);
   });
-  const premium = await prem.json();
-  if (!prem.ok) throw new Error(premium.error || "premium refused");
-  at("200 — conteúdo pago entregue (lane de pagamento: MOCK, declarado)");
+  const premium = JSON.parse(out.stdout.trim());
+  at(`200 — conteúdo pago entregue, liquidado em ${Date.now() - tpay}ms`, {
+    tx: premium.settlement_tx,
+    explorer: premium.explorer,
+    onchain: true,
+  });
 
   return { steps, premium, burn_tx: unlock.burn_tx, explorer: unlock.explorer };
 }

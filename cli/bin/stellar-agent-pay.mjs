@@ -29,6 +29,7 @@ OPTIONS:
   --max <usd>        refuse to pay more than this (e.g. 0.10). Default: no cap — you are asked.
   --yes              do not prompt for confirmation before paying
   --quiet            print only the unlocked response body
+  --pq-pass <token>  a pass already obtained from /pq/unlock — skip proving
   --pq-secret <hex>  post-quantum credential secret (64-byte hex, 8 LE u64s), or
                      an @file path holding it. Needed when the 402 carries a
                      PQ challenge (riverrun binding proof, verified on-chain).
@@ -120,10 +121,12 @@ async function main() {
   // single-use pass at /pq/unlock. The server verifies the proof against the
   // deployed Soroban contract, not local code.
   const pq = parsePqChallenge((h) => probe.headers.get(h));
-  let pqPass = null;
-  if (pq) {
+  // A caller that already unlocked hands the pass straight in. Re-proving a
+  // credential it has already spent would burn a second nullifier for nothing.
+  let pqPass = o.pqPass || null;
+  if (pq && !pqPass) {
     if (!o.pqSecret) {
-      log(o.quiet, `refused: endpoint requires a PQ credential proof (pass --pq-secret)`);
+      log(o.quiet, `refused: endpoint requires a PQ credential proof (pass --pq-secret or --pq-pass)`);
       return 5;
     }
     const secret = o.pqSecret.startsWith("@")

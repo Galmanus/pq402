@@ -13,6 +13,7 @@ export function parseArgs(argv) {
     else if (a === "--network") o.network = argv[++i];
     else if (a === "--max") o.max = Number(argv[++i]);
     else if (a === "--pq-secret") o.pqSecret = argv[++i];
+    else if (a === "--pq-pass") o.pqPass = argv[++i];
     else if (a === "--pq-prover") o.pqProver = argv[++i];
     else rest.push(a);
   }
