@@ -1,0 +1,6 @@
+# Generated or vendored, so the language bar reflects what was written here
+# rather than what npm and cargo produced.
+*.lock            linguist-generated=true
+package-lock.json linguist-generated=true
+test_snapshots/** linguist-generated=true
+ui/**             linguist-documentation=true
