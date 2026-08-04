@@ -28,6 +28,42 @@ const pay = await honoPaywall({ price: "0.10", payTo });
 app.get("/premium", pay, (c) => c.json({ ok: true, tx: c.get("x402").transaction }));
 ```
 
+## The other gate
+
+A paywall answers *did they pay*. Metered APIs usually have a second question —
+*are they allowed to buy this at all* — and the usual answers, an API key or an
+account, make the caller identifiable across every request they ever make.
+
+Pass a `credential` option and the route additionally demands a zero-knowledge
+proof, judged by a Soroban contract:
+
+```js
+const pay = await expressPaywall({
+  price: "0.10",
+  payTo: process.env.STELLAR_RECIPIENT,
+  credential: { contract: "CA6QM6DR…", source: "my-key" },
+});
+
+app.post("/pq/unlock", pay.unlock);   // proofs are traded for single-use passes
+app.get("/premium", pay, handler);
+```
+
+What the server never learns: which credential. What it does learn: that one
+exists, is valid, and has not already been spent on this challenge. The verdict
+comes from the contract, which burns a per-challenge nullifier, so single use
+survives a restart of your process.
+
+The credential is checked **before** the payment. Charging someone and then
+refusing them is worse than refusing them, and it is the server's job not to
+arrange that. It is consumed only once the request succeeds, because the x402
+handshake sends the same request twice — once to be told the price, once
+carrying the payment — and a gate that spent the pass on sight refused its own
+second half.
+
+Requires the `stellar` CLI on PATH, and a deployed verifier. The one in the
+example is riverrun's post-quantum credential relation; any contract with the
+same `spend(proof, publics) -> bool` shape works.
+
 ## Why this exists
 
 Getting an x402 client and a Stellar facilitator to agree took four failing

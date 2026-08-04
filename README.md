@@ -256,6 +256,12 @@ cd examples/second-app && npm install && node server.mjs
 stellar agent-pay http://localhost:4500/weather --max 0.10 --source pq402-payer
 ```
 
+And the differentiator is an option, not a fork of the server:
+[`examples/gated-app`](examples/gated-app) demands **both** gates in one
+configuration — payment settled by a facilitator, credential judged by a
+contract — in about twenty lines. It returned
+`{"premium":"paid for, and proved eligible, without saying who","settled_by":"dcfed383…"}`.
+
 ## Agent treasury: a spending rule the agent cannot talk its way out of
 
 `--max` on the CLI is a promise the agent makes to itself; a compromised or

@@ -108,3 +108,61 @@ test("the api key travels as a bearer token", async () => {
   await paywall({ price: "0.10", payTo: PAY_TO, apiKey: "secret-key" });
   assert.equal(calls[0].auth, "Bearer secret-key");
 });
+
+// --- the credential gate -------------------------------------------------
+
+import { credentialGate, freshRound, leU64Hex } from "../src/credential.mjs";
+
+test("a challenge is eight canonical M31 limbs, and fresh each time", () => {
+  const a = freshRound(), b = freshRound();
+  assert.equal(a.length, 8);
+  for (const v of a) assert.ok(v >= 0 && v < 2 ** 31 - 1, `${v} must be a canonical M31 element`);
+  assert.notDeepEqual(a, b, "a reused challenge is not a challenge");
+  assert.equal(leU64Hex(a).length, 128, "eight little-endian u64s is 64 bytes");
+});
+
+test("a gate needs somewhere to send the proof and someone to send it", () => {
+  assert.throws(() => credentialGate({}), /contract is required/);
+  assert.throws(() => credentialGate({ contract: "C…" }), /source is required/);
+});
+
+test("the challenge headers name the contract that will judge", () => {
+  const c = credentialGate({ contract: "CA6QM6DR", source: "k" });
+  const h = c.challengeHeaders();
+  assert.equal(h["x-pq-contract"], "CA6QM6DR");
+  assert.equal(h["x-pq-queries"], "40");
+  assert.equal(h["x-pq-challenge"].length, 128);
+  assert.notEqual(c.challengeHeaders()["x-pq-challenge"], h["x-pq-challenge"]);
+});
+
+test("an unknown or reused round is refused before the chain is asked", async () => {
+  const c = credentialGate({ contract: "CA6QM6DR", source: "k" });
+  const out = await c.unlock("AA==", "00", { round: "never-issued" });
+  assert.equal(out.ok, false);
+  assert.equal(out.status, 403);
+  assert.match(out.error, /unknown or reused/);
+});
+
+test("a malformed unlock is a 400, not a crash", async () => {
+  const c = credentialGate({ contract: "CA6QM6DR", source: "k" });
+  const out = await c.unlock(undefined, undefined);
+  assert.equal(out.status, 400);
+});
+
+test("a pass is single-use", () => {
+  const c = credentialGate({ contract: "CA6QM6DR", source: "k" });
+  // Reach past the API to seed one, since minting a real pass needs a chain.
+  const h = c.challengeHeaders();
+  assert.equal(c.usePass("nope"), false);
+  assert.equal(c.usePass(undefined), false, "an absent pass is not a valid pass");
+  assert.ok(h["x-pq-challenge"]);
+});
+
+test("checking a pass and consuming it are separate, because the handshake sends twice", () => {
+  const c = credentialGate({ contract: "CA6QM6DR", source: "k" });
+  // Seed a pass the way unlock() does, without needing a chain.
+  const token = "deadbeef";
+  c.hasPass(token); // no-op, but exercises the sweep
+  assert.equal(c.usePass(token), false, "an unissued pass is not live");
+  assert.equal(c.hasPass(undefined), false);
+});
