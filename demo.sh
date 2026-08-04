@@ -65,4 +65,6 @@ PQ_PROVER="$PROVER" node "$PLUGIN" "http://localhost:$PORT/premium" --pq-secret 
 echo
 echo "▸ one credential, many single-use proofs, each burned by consensus."
 echo "  A literal replay (re-sending an already-spent proof) is refused by the"
-echo "  contract itself: see txs 35d6e7e8 (true) and 06a82052 (false) in the repo README."
+echo "  contract itself. Against CA6QM6DR, the same proof spent twice:"
+echo "    0f722519e12cc030708e0644bc695ea0b9fe6ccc7a03761c1e7338d4f0e20ec0  true"
+echo "    c1a1a971c67e84e4d851de6e63b6a6521910b0ec00840ef68be59753a9af4959  false"

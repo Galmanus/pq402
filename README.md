@@ -66,6 +66,12 @@ Neither gate trusts the server. The paywall cannot forge a settlement, and it
 cannot decide the credential is valid — it forwards a proof to a deployed
 contract and reads the verdict. Replay is refused by the chain rather than by
 an in-process set, so restarting the server does not reopen a spent credential.
+The same proof, spent twice against `CA6QM6DR`:
+
+| | tx | result |
+|---|---|---|
+| first spend | [`0f722519…`](https://stellar.expert/explorer/testnet/tx/0f722519e12cc030708e0644bc695ea0b9fe6ccc7a03761c1e7338d4f0e20ec0) | `true` |
+| literal replay | [`c1a1a971…`](https://stellar.expert/explorer/testnet/tx/c1a1a971c67e84e4d851de6e63b6a6521910b0ec00840ef68be59753a9af4959) | `false` |
 
 ```mermaid
 sequenceDiagram
