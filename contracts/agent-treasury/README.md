@@ -4,7 +4,7 @@
 
 ```
 1. INSIDE policy — 0.02 USDC
-   🔗 .../tx/50fb38c77a1b9fa3bb74e541c21d27b7eb01a09940079ad52e595b884d745c74
+   tx 50fb38c77a1b9fa3bb74e541c21d27b7eb01a09940079ad52e595b884d745c74
    remaining: 100000
 
 2. OUTSIDE policy — 0.02 more, against a 300000-unit daily cap

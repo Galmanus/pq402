@@ -25,8 +25,9 @@ paying…
 ```
 
 Both hashes are real and on testnet. [`TRANSCRIPT.md`](TRANSCRIPT.md) has the
-full run, including the balances moving `20.0 → 19.9` and `0 → 0.10` USDC, and
-the network fee being paid by the **facilitator** rather than the agent.
+full run, including the payer going from `20.0` to `19.9` USDC and the
+recipient from `0` to `0.10`, and the network fee being paid by the
+**facilitator** rather than by the agent.
 
 ## On-chain
 

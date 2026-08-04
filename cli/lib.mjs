@@ -56,9 +56,30 @@ export function parsePqChallenge(getHeader = () => null) {
 // Extract payment requirements from a parsed 402 body and a header lookup.
 // `getHeader(name)` returns a header value or null. Pure: no fetch, no Response.
 export function parseRequirements(body, getHeader = () => null) {
-  const acc = body && Array.isArray(body.accepts) ? body.accepts[0] : {};
+  // v2 publishes the requirements in the `payment-required` header and only
+  // echoes them in the body as a courtesy; v1 has the body alone. Prefer the
+  // header, because a v2 server is under no obligation to fill the body.
+  let doc = body;
+  const encoded = getHeader("payment-required");
+  if (encoded) {
+    try {
+      doc = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8"));
+    } catch {
+      /* fall back to the body */
+    }
+  }
+
+  const acc = doc && Array.isArray(doc.accepts) ? doc.accepts[0] : {};
   const network = acc.network || getHeader("x-payment-network") || "stellar:testnet";
-  const rawAmount = acc.maxAmountRequired ?? getHeader("x-payment-amount");
+
+  // v2 calls it `amount`, v1 `maxAmountRequired`. Reading only the v1 name
+  // against a v2 server leaves the price null — which printed as "?" and, far
+  // worse, made the `--max` check fall through its own null guard. The cap
+  // silently did not apply.
+  const rawAmount = acc.amount ?? acc.maxAmountRequired ?? getHeader("x-payment-amount");
+
+  // Stellar assets carry seven decimals. v2 dropped the `decimals` field
+  // because the asset determines it.
   const decimals = Number(acc.decimals ?? 7);
   const usd = rawAmount != null ? Number(rawAmount) / 10 ** decimals : null;
   return {

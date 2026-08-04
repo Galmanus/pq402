@@ -97,3 +97,51 @@ test("parseArgs: --pq-secret and --pq-prover", () => {
   assert.equal(o.pqSecret, "@/tmp/s.hex");
   assert.equal(o.pqProver, "/bin/prove");
 });
+
+// The v2 shape, and the reason this test exists.
+//
+// `parseRequirements` read only `maxAmountRequired`, the v1 field name. Against
+// a v2 server it returned a null price, which printed as "?" and — the part
+// that mattered — made the `--max` guard fall through its own null check. The
+// cap did not apply, silently, on exactly the path the README says enforces it.
+
+test("v2 requirements: the price is read from `amount`", () => {
+  const r = parseRequirements({
+    x402Version: 2,
+    accepts: [
+      {
+        scheme: "exact",
+        network: "stellar:testnet",
+        amount: "1000000",
+        asset: "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+        payTo: "GAWAG7OD4GEMQZWPQGIQDHHEUAWNJJ7VXK2VQKO3STXAJMRCNY2USAHB",
+      },
+    ],
+  });
+  assert.equal(r.usd, 0.1, "1000000 base units at seven decimals is 0.10");
+  assert.equal(r.network, "stellar:testnet");
+});
+
+test("v1 requirements still parse, so a v1 server is not broken", () => {
+  const r = parseRequirements({
+    x402Version: 1,
+    accepts: [{ maxAmountRequired: "1000000", decimals: 7, asset: "USDC" }],
+  });
+  assert.equal(r.usd, 0.1);
+});
+
+test("the header wins over the body, because v2 need not fill the body", () => {
+  const header = Buffer.from(
+    JSON.stringify({ x402Version: 2, accepts: [{ amount: "2500000", network: "stellar:pubnet" }] })
+  ).toString("base64url");
+  const r = parseRequirements({ accepts: [{ amount: "1" }] }, (h) =>
+    h === "payment-required" ? header : null
+  );
+  assert.equal(r.usd, 0.25);
+  assert.equal(r.network, "stellar:pubnet");
+});
+
+test("no price at all leaves usd null rather than guessing zero", () => {
+  const r = parseRequirements({ accepts: [{}] });
+  assert.equal(r.usd, null, "a guessed 0 would sail past --max, which is the bug this replaces");
+});
