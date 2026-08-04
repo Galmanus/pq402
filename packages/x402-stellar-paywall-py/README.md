@@ -3,7 +3,12 @@
 **One line to charge an AI agent for a FastAPI route, on Stellar.**
 
 ```bash
-pip install x402-stellar-paywall[fastapi]
+# Not on PyPI yet — the name is reserved for the JS half's twin and the token
+# is not on this machine. Install from the repo, which is what the example does:
+pip install "x402-stellar-paywall[fastapi] @ git+https://github.com/Galmanus/pq402#subdirectory=packages/x402-stellar-paywall-py"
+
+# or, from a clone:
+pip install -e packages/x402-stellar-paywall-py[fastapi]
 ```
 
 ```python

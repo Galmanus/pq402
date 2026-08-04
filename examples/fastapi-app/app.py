@@ -1,6 +1,6 @@
 """A FastAPI route an agent pays for, in three lines of paywall.
 
-    pip install x402-stellar-paywall[fastapi] uvicorn
+    pip install -e ../../packages/x402-stellar-paywall-py[fastapi] uvicorn
     uvicorn app:app --port 4700
 
     stellar agent-pay http://localhost:4700/premium --max 0.10 --source pq402-payer

@@ -230,8 +230,8 @@ a one-line paywall middleware for Express and Hono with a Stellar facilitator
 preset:
 
 ```bash
-npm install x402-stellar-paywall            # Express, Hono
-pip install x402-stellar-paywall[fastapi]   # FastAPI
+npm install x402-stellar-paywall            # Express, Hono — on npm
+pip install -e packages/x402-stellar-paywall-py[fastapi]   # FastAPI — from this repo
 ```
 
 
@@ -302,7 +302,7 @@ contracts/   agent-treasury, the on-chain spending policy
 |---|---|
 | *Agent pays for an API — live 402, pay, unlock loop* | `demo.sh`, four transactions in [`TRANSCRIPT.md`](TRANSCRIPT.md) |
 | *working paywall with sponsored gas* | every settlement's fee is paid by the facilitator, visible in the fee account differing from the agent |
-| *x402 middleware kit for Express/Hono/FastAPI, published as a reusable package* | published on [npm](https://www.npmjs.com/package/x402-stellar-paywall) and as a Python package; gates [`examples/second-app`](examples/second-app) (Express) and [`examples/fastapi-app`](examples/fastapi-app) (FastAPI), each paid on testnet |
+| *x402 middleware kit for Express/Hono/FastAPI, published as a reusable package* | [published on npm](https://www.npmjs.com/package/x402-stellar-paywall); the Python twin installs from this repo, PyPI pending. Gates [`examples/second-app`](examples/second-app) (Express) and [`examples/fastapi-app`](examples/fastapi-app) (FastAPI), each paid on testnet |
 | *agent treasury with policy signers — inside policy succeeds, outside refused on-chain* | [`contracts/agent-treasury`](contracts/agent-treasury) |
 
 ### The CLI plugin
