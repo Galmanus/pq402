@@ -6,6 +6,12 @@ credential — and a CLI agent that completes the whole loop from the terminal.*
 Stellar Summit SP 2026 · Payments and Agent Tooling (SDF DevEx) ·
 sub-lane 3A, Agentic Payments (x402 / MPP)
 
+![network](https://img.shields.io/badge/network-Stellar%20testnet-black)
+![protocol](https://img.shields.io/badge/x402-v2%20exact-blue)
+![fees](https://img.shields.io/badge/agent%20XLM%20needed-zero-brightgreen)
+![proof](https://img.shields.io/badge/credential-post--quantum%20STARK-purple)
+![license](https://img.shields.io/badge/license-MIT-lightgrey)
+
 ```
 $ stellar agent-pay http://localhost:4402/premium --max 0.10
 → GET http://localhost:4402/premium
@@ -39,6 +45,52 @@ Neither gate trusts the server. The paywall cannot forge a settlement, and it
 cannot decide the credential is valid — it forwards a proof to a deployed
 contract and reads the verdict. Replay is refused by the chain rather than by
 an in-process set, so restarting the server does not reopen a spent credential.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant A as agent<br/>(stellar agent-pay)
+    participant S as pq402<br/>paywall
+    participant V as Soroban<br/>verifier
+    participant F as facilitator<br/>(OZ Channels)
+    participant L as Stellar<br/>ledger
+
+    A->>S: GET /premium
+    S-->>A: 402 + payment-required header<br/>+ post-quantum challenge
+    Note over A: proves locally, ~12 ms<br/>secret never leaves the machine
+    A->>S: POST /pq/unlock {proof, publics}
+    S->>V: spend(proof, publics)
+    V->>L: verify STARK + burn nullifier
+    L-->>V: accepted
+    V-->>S: true
+    S-->>A: pass + burn tx
+    A->>S: GET /premium + PAYMENT-SIGNATURE
+    S->>F: /verify
+    F-->>S: valid
+    S->>F: /settle
+    F->>L: USDC transfer, facilitator pays the fee
+    L-->>F: settled
+    F-->>S: tx hash
+    S-->>A: 200 + the goods + settlement tx
+```
+
+Two gates, two independent refusals — and a payment that is never taken for a
+credential that would have been rejected:
+
+```mermaid
+flowchart TD
+    R[request] --> C{credential proof<br/>verified on-chain?}
+    C -->|no| R1[["402 — nothing charged"]]
+    C -->|nullifier already burned| R2[["403 — refused by consensus"]]
+    C -->|yes| P{payment verifies<br/>at the facilitator?}
+    P -->|no| R3[["402 — facilitator's own reason"]]
+    P -->|yes| SET[settle on Stellar]
+    SET --> OK[["200 + settlement tx"]]
+    style R1 fill:#fee,stroke:#c00
+    style R2 fill:#fee,stroke:#c00
+    style R3 fill:#fee,stroke:#c00
+    style OK fill:#efe,stroke:#0a0
+```
 
 ## Run it
 
@@ -154,6 +206,24 @@ cd examples/second-app && npm install && node server.mjs
 stellar agent-pay http://localhost:4500/weather --max 0.10 --source pq402-payer
 ```
 
+## Agent treasury: a spending rule the agent cannot talk its way out of
+
+`--max` on the CLI is a promise the agent makes to itself; a compromised or
+prompt-injected agent simply stops making it. **[`contracts/agent-treasury`](contracts/agent-treasury)**
+is the same limit as a rule, in a Soroban contract, refused in consensus:
+
+```
+1. INSIDE  policy — 0.02 USDC   → settled, tx 50fb38c77a1b9fa3bb74e541c21d27b7…
+2. OUTSIDE policy — over cap    → REFUSED by the contract, #3 DailyCapExceeded
+3. OUTSIDE policy — wrong token → REFUSED by the contract, #2 ContractNotAllowed
+remaining after both refusals: unchanged — a refusal costs no budget
+```
+
+A rolling daily cap keyed off ledger time, and a contract allow-list so a
+stolen policy key cannot be pointed at a token the treasury was never meant to
+touch. `./contracts/agent-treasury/demo/policy.sh` deploys a fresh treasury,
+funds it, and runs all three.
+
 ## Layout
 
 ```
@@ -166,7 +236,17 @@ cli/         `stellar agent-pay`, the plugin the agent runs
 ui/          the booth's page
 packages/    x402-stellar-paywall, the middleware kit
 examples/    second-app, an unrelated API gated by that kit
+contracts/   agent-treasury, the on-chain spending policy
 ```
+
+## What maps to what
+
+| the sub-lane asks for | here |
+|---|---|
+| *Agent pays for an API — live 402, pay, unlock loop* | `demo.sh`, four transactions in [`TRANSCRIPT.md`](TRANSCRIPT.md) |
+| *working paywall with sponsored gas* | every settlement's fee is paid by the facilitator, visible in the fee account differing from the agent |
+| *x402 middleware kit, importable, gates a second app in minutes* | [`packages/x402-stellar-paywall`](packages/x402-stellar-paywall) gating [`examples/second-app`](examples/second-app) |
+| *agent treasury with policy signers — inside policy succeeds, outside refused on-chain* | [`contracts/agent-treasury`](contracts/agent-treasury) |
 
 ### The CLI plugin
 
