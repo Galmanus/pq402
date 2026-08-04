@@ -4,6 +4,6 @@
   "type": "module",
   "dependencies": {
     "express": "^5.0.0",
-    "x402-stellar-paywall": "file:../../packages/x402-stellar-paywall"
+    "x402-stellar-paywall": "^0.1.0"
   }
 }

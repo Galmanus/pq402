@@ -224,9 +224,15 @@ wallet simple.
 
 ## The reusable part
 
-The protocol work is extracted as **[`x402-stellar-paywall`](packages/x402-stellar-paywall)**,
+The protocol work is published as
+**[`x402-stellar-paywall`](https://www.npmjs.com/package/x402-stellar-paywall)**,
 a one-line paywall middleware for Express and Hono with a Stellar facilitator
 preset:
+
+```bash
+npm install x402-stellar-paywall
+```
+
 
 ```js
 const pay = await expressPaywall({ price: "0.10", payTo: process.env.STELLAR_RECIPIENT });
@@ -238,10 +244,12 @@ and it fails at startup — with the command that fixes it — rather than
 advertising a price it cannot settle. Ten offline tests pin the shaping,
 including one that a failed verify never reaches settle.
 
-Proven on something other than its birthplace: `examples/second-app` is a
-weather API with no credential logic anywhere in it, gated by that one line and
-paid by the same agent. Settlement `73d850044aecb628a07b1cc8f9b684fa57e021fe…`,
-ledger 3,966,679, fee paid by the facilitator.
+Proven on something other than its birthplace, and from the registry rather
+than the working tree: `examples/second-app` is a weather API with no
+credential logic anywhere in it, which declares `x402-stellar-paywall` as an
+ordinary npm dependency, gates one route with one line, and is paid by the same
+agent. Settlement `4bfd5a8f75522b20556803ae84857331059d3c74acf92aa27854108b…`,
+with the fee paid by the facilitator.
 
 ```bash
 cd examples/second-app && npm install && node server.mjs

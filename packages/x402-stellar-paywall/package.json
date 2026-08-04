@@ -15,7 +15,10 @@
     "soroban",
     "paywall",
     "agentic-payments",
-    "usdc"
+    "usdc",
+    "express",
+    "hono",
+    "micropayments"
   ],
   "license": "MIT",
   "files": [
@@ -24,5 +27,19 @@
   ],
   "scripts": {
     "test": "node --test test/*.mjs"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Galmanus/pq402.git",
+    "directory": "packages/x402-stellar-paywall"
+  },
+  "homepage": "https://github.com/Galmanus/pq402/tree/master/packages/x402-stellar-paywall",
+  "bugs": {
+    "url": "https://github.com/Galmanus/pq402/issues"
+  },
+  "author": "Manuel Guilherme Galmanus",
+  "engines": {
+    "node": ">=18"
+  },
+  "sideEffects": false
 }

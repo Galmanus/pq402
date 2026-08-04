@@ -2,6 +2,10 @@
 
 **One line to charge an AI agent for an HTTP route, on Stellar.**
 
+```bash
+npm install x402-stellar-paywall
+```
+
 ```js
 import { expressPaywall } from "x402-stellar-paywall/express";
 
@@ -112,6 +116,10 @@ logic in it at all — which an agent paid on Stellar testnet:
 
 That transaction is successful at ledger 3,966,679, and its fee was paid by
 `GA6THKUY…` — the facilitator, not the agent.
+
+The same app, re-run against this package **installed from npm** rather than
+from the working tree, settles the same way:
+`4bfd5a8f75522b20556803ae84857331059d3c74acf92aa27854108b56ec289c`.
 
 ## Tests
 
