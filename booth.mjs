@@ -32,7 +32,7 @@ const PORT = Number(process.env.BOOTH_PORT || 4403);
 const PQ402 = process.env.PQ402_URL || "http://localhost:4402";
 const PROVER = process.env.PQ_PROVER || join(HERE, "bin", "prove_action");
 const CONTRACT_ID =
-  process.env.PQ_CONTRACT_ID || "CD72SHMVQ3VLFBMVB4525PYMI42MBJBT3GTP2Q7HFENGNEVMFCRDFFA3";
+  process.env.PQ_CONTRACT_ID || "CA6QM6DRPVYRHFWEWNATDIKLL4P47XBI2OWVL7226WHHOTFEY2W2JKET";
 const NETWORK = process.env.STELLAR_NETWORK || "testnet";
 const SOURCE = process.env.PQ_SOURCE || "riverrun-registry-deployer";
 const WORK = join(tmpdir(), `pq402-booth-${process.pid}`);

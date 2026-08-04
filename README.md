@@ -16,9 +16,9 @@ sub-lane 3A, Agentic Payments (x402 / MPP)
 $ stellar agent-pay http://localhost:4402/premium --max 0.10
 → GET http://localhost:4402/premium
 ← 402 Payment Required: 0.10 USDC on stellar:testnet → GAWAG7OD…
-proving PQ credential (q=40, contract CD72SHMV…)…
+proving PQ credential (q=40, contract CA6QM6DR…)…
 proof: 79227 bytes in 12ms
-PQ verified ON-CHAIN by CD72SHMV… (testnet) → pass granted
+PQ verified ON-CHAIN by CA6QM6DR… (testnet) → pass granted
 nullifier burned by consensus: …/tx/ddc77ecb804691aac7f84a13dfbe24f84d87e90fb…
 paying…
 ← 200 unlocked        settlement f8c8fb36379f83ce9fbb11756c5d1bf9efe5b38bde…
@@ -27,6 +27,26 @@ paying…
 Both hashes are real and on testnet. [`TRANSCRIPT.md`](TRANSCRIPT.md) has the
 full run, including the balances moving `20.0 → 19.9` and `0 → 0.10` USDC, and
 the network fee being paid by the **facilitator** rather than the agent.
+
+## On-chain
+
+Two Soroban contracts decide things here. Neither is a mock, and the paywall
+can overrule neither.
+
+| contract | address | what it decides |
+|---|---|---|
+| credential verifier | [`CA6QM6DR…`](https://stellar.expert/explorer/testnet/contract/CA6QM6DRPVYRHFWEWNATDIKLL4P47XBI2OWVL7226WHHOTFEY2W2JKET) | is this a valid, unspent credential — verifies a hash-based STARK and burns the nullifier in its own storage |
+| agent treasury | [`contracts/agent-treasury`](contracts/agent-treasury) | is this payment inside policy — a rolling daily cap and a contract allow-list, refused in consensus |
+
+The treasury's source is in this repo (Rust, `soroban-sdk`). The verifier's is
+in [riverrun](https://github.com/Galmanus/mirror-pool/tree/feat/behavioral-pool-provenance-tracer/crates/riverrun-m31),
+the Circle-STARK library it was built from — this repo consumes the deployed
+contract rather than vendoring a copy of it.
+
+The paywall, the CLI agent and the middleware are JavaScript because that is
+where x402 lives: `@x402/fetch` and `@x402/stellar` have no Rust port, and the
+sub-lane asks for middleware targeting Express, Hono and FastAPI. What runs
+on-chain is Rust; what speaks HTTP is not.
 
 ## What this is
 

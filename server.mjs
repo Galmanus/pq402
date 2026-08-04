@@ -654,7 +654,19 @@ const server = createServer(async (req, res) => {
 });
 
 async function boot() {
-  if (RELATION_MODE) await recomputeRoot();
+  if (RELATION_MODE) {
+    // The relation verifier still carries the OLD public layout: leaf and
+    // nullifier as full sixteen-limb permutation states, which is the shape
+    // that published the witness. The binding path was rebuilt and redeployed;
+    // this one has not been. Refusing is better than accepting a proof under a
+    // relation this repo no longer stands behind.
+    console.error(
+      "PQ_MODE=relation is disabled: its verifier predates the digest fix " +
+        "(see 'Honest limits' in the README) and needs rebuilding and " +
+        "redeploying against the repaired relation. Use the default binding mode."
+    );
+    process.exit(1);
+  }
   if (!MOCK_PAYMENT) {
     try {
       const extra = await discoverFacilitator();
