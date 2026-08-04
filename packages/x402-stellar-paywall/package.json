@@ -1,0 +1,15 @@
+{
+  "name": "x402-stellar-paywall",
+  "version": "0.1.0",
+  "description": "One-line x402 paywall middleware for Stellar, with a facilitator preset. Express, Hono, and a framework-free core.",
+  "type": "module",
+  "main": "src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs",
+    "./express": "./src/express.mjs",
+    "./hono": "./src/hono.mjs"
+  },
+  "keywords": ["x402", "stellar", "soroban", "paywall", "agentic-payments", "usdc"],
+  "license": "MIT",
+  "files": ["src", "README.md"]
+}

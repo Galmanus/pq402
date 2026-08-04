@@ -129,6 +129,31 @@ at all — it settles directly through the SAC. The two are complementary; this
 repo takes the x402 path because fee sponsorship is what keeps an agent's
 wallet simple.
 
+## The reusable part
+
+The protocol work is extracted as **[`x402-stellar-paywall`](packages/x402-stellar-paywall)**,
+a one-line paywall middleware for Express and Hono with a Stellar facilitator
+preset:
+
+```js
+const pay = await expressPaywall({ price: "0.10", payTo: process.env.STELLAR_RECIPIENT });
+app.get("/weather", pay, (req, res) => res.json({ temp: 24, settled_by: req.x402.transaction }));
+```
+
+It encodes the four protocol details above as behaviour rather than as advice,
+and it fails at startup — with the command that fixes it — rather than
+advertising a price it cannot settle.
+
+Proven on something other than its birthplace: `examples/second-app` is a
+weather API with no credential logic anywhere in it, gated by that one line and
+paid by the same agent. Settlement `73d850044aecb628a07b1cc8f9b684fa57e021fe…`,
+ledger 3,966,679, fee paid by the facilitator.
+
+```bash
+cd examples/second-app && npm install && node server.mjs
+stellar agent-pay http://localhost:4500/weather --max 0.10 --source pq402-payer
+```
+
 ## Layout
 
 ```
@@ -139,6 +164,8 @@ setup.mjs    generates and funds the two testnet accounts
 bin/         prover binaries, built from the riverrun-m31 Rust crate
 cli/         `stellar agent-pay`, the plugin the agent runs
 ui/          the booth's page
+packages/    x402-stellar-paywall, the middleware kit
+examples/    second-app, an unrelated API gated by that kit
 ```
 
 ### The CLI plugin
