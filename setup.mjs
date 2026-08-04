@@ -50,7 +50,10 @@ const IDENTITY = process.env.PQ_IDENTITY || "pq402-payer";
 try {
   execFileSync("stellar", ["keys", "add", IDENTITY, "--secret-key", "--overwrite"], {
     input: payer.secret() + "\n",
-    stdio: ["pipe", "ignore", "ignore"],
+    // stdout/stderr must be pipes, not "ignore": with them ignored the CLI
+    // writes an identity file with an EMPTY secret_key and exits zero, and the
+    // failure only appears later as "the strkey is invalid".
+    stdio: ["pipe", "pipe", "pipe"],
   });
   put("PQ_SOURCE", IDENTITY);
   console.log(`registered the payer as stellar identity "${IDENTITY}"`);
