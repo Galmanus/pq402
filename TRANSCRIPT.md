@@ -1,91 +1,114 @@
 # pq402, one real run, verbatim
 
-Recorded 2026-08-02, testnet, production security (40 FRI queries), PQ lane
-real. Every hash below is checkable on stellar.expert.
+Recorded 2026-08-04 on Stellar testnet. **Both lanes real**: the credential is
+judged by a deployed Soroban contract, and the payment settles USDC through the
+OpenZeppelin Channels facilitator. Every hash below is checkable on
+stellar.expert.
 
-> **This transcript predates real settlement.** It was taken while the payment
-> lane was stubbed, which the run states as it goes. The settlement path now
-> goes to the facilitator's `/verify` and `/settle` and the stub is opt-in via
-> `MOCK_PAYMENT=1`. The proof lane shown here is unchanged and was never
-> stubbed. A fresh transcript replaces this one once a facilitator key is in
-> place.
-
-## 1. The agent hits the paid API and gets a challenge
+## 0. The server refuses to start without a facilitator
 
 ```
-GET /premium
-→ 402
-x-pq-action:    ba71a344000000006d68c257000000000e0a0f4f…  (premium-api-access)
-x-pq-challenge: <8 fresh M31 elements, single use>
-x-pq-contract:  CD72SHMVQ3VLFBMVB4525PYMI42MBJBT3GTP2Q7HFENGNEVMFCRDFFA3
-x-pq-queries:   40
+$ node server.mjs
+facilitator https://channels.openzeppelin.com/x402/testnet → exact/stellar:testnet,
+  extra {"areFeesSponsored":true}
+pq402 on http://localhost:4423 — verifier CD72SHMV… (testnet, q=40)
 ```
 
-## 2. The agent proves, locally, in 11 milliseconds
+The `extra` block is discovered, not hardcoded. The Stellar exact scheme
+refuses to build a payment unless it finds `areFeesSponsored: true` there, and
+that flag is the facilitator's to assert rather than ours to claim on its
+behalf. With no key the server exits instead of starting in a state where it
+would advertise a paywall it cannot settle.
+
+## 1. The agent asks, and is told two things at once
 
 ```
-$ prove_action <secret> <action> <round> 40 out/
-proof_bytes: 78640        real: 0.011s
+→ GET http://localhost:4423/premium
+← 402 Payment Required
 ```
 
-A production-security post-quantum STARK, proved on a laptop faster than a
-network round trip.
+The `payment-required` header carries the x402 v2 requirements: 1000000 base
+units of USDC — 0.10, at Stellar's seven decimals — over the SAC `CBIELTK6…`,
+paid to `GAWAG7OD…`. The body carries the post-quantum challenge: a fresh
+single-use round, the verifying contract, and the query count.
 
-## 3. Unlock: the chain verifies AND burns the nullifier
+## 2. The agent proves its credential locally
 
 ```
-POST /pq/unlock {proof_b64, publics_hex}
-→ 200
+proving PQ credential (q=40, contract CD72SHMV…)…
+proof: 79227 bytes in 12ms
+```
+
+The secret never leaves the machine. The server knows only the leaf, which it
+was given at registration.
+
+## 3. The chain judges the credential and burns the nullifier
+
+```
+PQ verified ON-CHAIN by CD72SHMV… (testnet, 7164ms) → pass granted
+nullifier burned by consensus:
+  https://stellar.expert/explorer/testnet/tx/ddc77ecb804691aac7f84a13dfbe24f84d87e90fb526a2ee93ad142b45300ee9
+```
+
+The server did not decide this. It forwarded the proof to a contract and read
+the verdict. Replay is refused by contract storage, so restarting the server
+does not reopen a spent credential.
+
+## 4. The agent pays, and the facilitator settles
+
+```
+paying…
+← 200 unlocked
 {
-  "pass": "d70d6a58c1a5ad115d46ff2dc2070491",
-  "verified_by": { "contract": "CD72SHMV…FFA3", "num_queries": 40, "mode": "spend" },
-  "burn_tx": "82efeae52df4bb254c5cb4240683a70aa0a715663eeaabaa67afa1f83fe4cf71",
-  "explorer": "https://stellar.expert/explorer/testnet/tx/82efeae52df4bb254c5cb4240683a70aa0a715663eeaabaa67afa1f83fe4cf71",
-  "verify_ms": 9277
+  "premium": "the goods: one paid, PQ-authenticated API response",
+  "credential": "7169473d00000000…",
+  "payment": "x402 settled on Stellar",
+  "settlement_tx": "f8c8fb36379f83ce9fbb11756c5d1bf9efe5b38bdedc95f2116d63fdb8de3409"
 }
 ```
 
-The server did not decide this. A real transaction did: STARK verified (247M
-instructions) and nullifier burned in contract storage, single-use by consensus.
+On-chain, that transaction:
 
-## 4. The goods
+| | |
+|---|---|
+| successful | `true` |
+| ledger | 3,966,485 |
+| fee charged | 23,073 stroops |
+| **fee paid by** | `GA6THKUY2XJZOBRFMEQMMEADSCQLCZ2QMQWAWMMDXBTE7SARKAXVH7TL` |
 
-```
-GET /premium  (x-pq-pass + x-payment)
-→ 200 { "premium": "the goods: one paid, PQ-authenticated API response", … }
-```
+The fee account is **not** the agent. That is fee sponsorship working: the
+agent signed Soroban authorization entries, the facilitator assembled the
+transaction, paid the network fee, and submitted it. An agent wallet needs the
+asset it intends to spend and no XLM at all.
 
-## 5. Replay, refused twice over
-
-Same proof, same publics, POSTed again:
-
-```
-→ 403 { "error": "unknown or reused challenge round" }
-```
-
-The server's challenge layer catches it first (free). If a rogue operator
-deleted that check, the chain still refuses: the nullifier is already burned,
-and the contract answers `false` for 311,750 instructions, as tx
-`c3153c2ea01296bdc2d855a9f11655aa5f3dbf309d7ea0367ae6ab200c9f01e2` demonstrates
-on-chain.
-
-## The same flow as ONE command, through the stellar CLI plugin
+Balances moved:
 
 ```
-$ stellar agent-pay http://localhost:4402/premium --pq-secret <hex> --yes
-→ GET http://localhost:4402/premium
-← 402 Payment Required: $0.1 USDC on stellar:testnet → GA4VTIGQ…
-proving PQ credential (q=40, contract CD72SHMV…)…
-proof: 78976 bytes in 11ms
-PQ verified ON-CHAIN by CD72SHMV… (testnet, 4451ms) → pass granted
+payer      20.0000000 → 19.9000000 USDC
+recipient   0.0000000 →  0.1000000 USDC
+```
+
+## 5. One credential, many purchases, each single-use
+
+The same agent, run again with the **same** credential:
+
+```
+proof: 79270 bytes in 16ms
+PQ verified ON-CHAIN by CD72SHMV… (testnet, 13775ms) → pass granted
 nullifier burned by consensus:
-  https://stellar.expert/explorer/testnet/tx/854ee49629b1f5742277f7a98eae209d41381cc3dfdb50a2fffa59472312c8c0
-paying… [MOCK lane, server-declared]
+  https://stellar.expert/explorer/testnet/tx/9d58e2d7bab6f4a839e62b51aa2723216a33f8c04fd00f2f58b3f622fd9a82bc
 ← 200 unlocked
+settlement_tx: dae4c7a431bb4789e46060cbaaa00a7bf1e17708a2b522bfad515a3b956d81a9
 ```
 
-## Grand total
+A different nullifier, because the challenge was fresh. A *literal* replay —
+re-sending an already-spent proof — is refused by the contract itself.
 
-One agent, one paid API call, one post-quantum credential: proved in 11ms,
-verified and consumed by Stellar consensus in one transaction, unusable a second
-time by anyone, including the server operator.
+## The four hashes
+
+| what | tx |
+|---|---|
+| credential burn, purchase 1 | `ddc77ecb804691aac7f84a13dfbe24f84d87e90fb526a2ee93ad142b45300ee9` |
+| USDC settlement, purchase 1 | `f8c8fb36379f83ce9fbb11756c5d1bf9efe5b38bdedc95f2116d63fdb8de3409` |
+| credential burn, purchase 2 | `9d58e2d7bab6f4a839e62b51aa2723216a33f8c04fd00f2f58b3f622fd9a82bc` |
+| USDC settlement, purchase 2 | `dae4c7a431bb4789e46060cbaaa00a7bf1e17708a2b522bfad515a3b956d81a9` |

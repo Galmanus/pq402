@@ -7,7 +7,7 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-PROVER="${PQ_PROVER:-$HOME/projects/mirror-pool/crates/riverrun-m31/target/release/examples/prove_action}"
+PROVER="${PQ_PROVER:-$HERE/bin/prove_action}"
 PLUGIN="${AGENT_PAY:-$HERE/cli/bin/stellar-agent-pay.mjs}"
 PORT="${PORT:-4402}"
 WORK="$(mktemp -d)"
@@ -19,8 +19,8 @@ if [ ! -x "$PROVER" ]; then
   exit 1
 fi
 
-echo "▸ starting pq402 server (payment lane MOCK, PQ lane real, on-chain spend)"
-(cd "$HERE" && MOCK_PAYMENT=1 PORT="$PORT" node server.mjs > "$WORK/server.log" 2>&1) &
+echo "▸ starting pq402 server (payment lane ${MOCK_PAYMENT:+MOCK }${MOCK_PAYMENT:-REAL}, PQ lane real, on-chain spend)"
+(cd "$HERE" && PORT="$PORT" node server.mjs > "$WORK/server.log" 2>&1) &
 SRV=$!
 for i in $(seq 1 20); do curl -sf "http://localhost:$PORT/" > /dev/null && break; sleep 0.3; done
 
@@ -35,11 +35,11 @@ curl -s -X POST "http://localhost:$PORT/pq/register" -H 'content-type: applicati
 
 echo
 echo "▸ the agent pays (watch the burn tx line: single-use enforced by the chain)"
-PQ_PROVER="$PROVER" node "$PLUGIN" "http://localhost:$PORT/premium" --pq-secret "$SECRET" --yes
+PQ_PROVER="$PROVER" node "$PLUGIN" "http://localhost:$PORT/premium" --pq-secret "$SECRET" --source "${PAY_SOURCE:-pq402-payer}" --yes
 
 echo
 echo "▸ same credential again: a FRESH proof for a fresh challenge (must succeed, new nullifier, new burn)"
-PQ_PROVER="$PROVER" node "$PLUGIN" "http://localhost:$PORT/premium" --pq-secret "$SECRET" --yes
+PQ_PROVER="$PROVER" node "$PLUGIN" "http://localhost:$PORT/premium" --pq-secret "$SECRET" --source "${PAY_SOURCE:-pq402-payer}" --yes
 
 echo
 echo "▸ one credential, many single-use proofs, each burned by consensus."

@@ -8,13 +8,19 @@ sub-lane 3A, Agentic Payments (x402 / MPP)
 
 ```
 $ stellar agent-pay http://localhost:4402/premium --max 0.10
-← 402  price 0.10 USDC  +  post-quantum challenge
-proving…                                        12ms
-PQ verified ON-CHAIN by CD72SHMV… (testnet, 341ms) → pass granted
-nullifier burned by consensus: https://stellar.expert/explorer/testnet/tx/…
-paying…                                         x402 settled
-← 200 unlocked
+→ GET http://localhost:4402/premium
+← 402 Payment Required: 0.10 USDC on stellar:testnet → GAWAG7OD…
+proving PQ credential (q=40, contract CD72SHMV…)…
+proof: 79227 bytes in 12ms
+PQ verified ON-CHAIN by CD72SHMV… (testnet) → pass granted
+nullifier burned by consensus: …/tx/ddc77ecb804691aac7f84a13dfbe24f84d87e90fb…
+paying…
+← 200 unlocked        settlement f8c8fb36379f83ce9fbb11756c5d1bf9efe5b38bde…
 ```
+
+Both hashes are real and on testnet. [`TRANSCRIPT.md`](TRANSCRIPT.md) has the
+full run, including the balances moving `20.0 → 19.9` and `0 → 0.10` USDC, and
+the network fee being paid by the **facilitator** rather than the agent.
 
 ## What this is
 
@@ -43,13 +49,18 @@ node server.mjs           # terminal 1
 ./demo.sh                 # terminal 2
 ```
 
-Four things go in `.env`. Two are web forms with a captcha and cannot be
-scripted:
+Four things go in `.env`:
 
-1. **An OZ Channels testnet key** — [channels.openzeppelin.com/testnet/gen](https://channels.openzeppelin.com/testnet/gen).
-   Required on testnet too; every facilitator endpoint answers `401` without it.
+1. **An OZ Channels testnet key.** A plain GET mints one:
+   ```bash
+   curl -s https://channels.openzeppelin.com/testnet/gen
+   # {"apiKey":"…"}
+   ```
+   Required on testnet as well as mainnet; every facilitator endpoint answers
+   `401` without it, and this server refuses to start rather than advertise a
+   paywall it cannot settle.
 2. **Testnet USDC for the payer** — [faucet.circle.com](https://faucet.circle.com),
-   pick Stellar testnet.
+   pick Stellar testnet. This one is captcha-gated and has to be done by hand.
 3. A recipient `G...` account with a USDC trustline (`STELLAR_RECIPIENT`).
 4. The payer's `S...` secret, with a USDC trustline (`STELLAR_SECRET_KEY`).
 
@@ -76,7 +87,7 @@ agent → POST /pq/unlock  { proof, publics }
 server→ Soroban: spend(proof, publics)          verify + burn, one tx
      ← { pass, burn_tx }                        the chain decided
 
-agent → GET /premium  + X-PAYMENT + X-PQ-PASS
+agent → GET /premium  + PAYMENT-SIGNATURE + X-PQ-PASS
 server→ facilitator /verify   then   /settle    USDC moves on Stellar
      ← 200 + the goods + settlement tx hash
 ```
@@ -85,13 +96,25 @@ Verify precedes settle deliberately: settle moves money, so a payload that
 fails verification must never reach it. A refusal returns the facilitator's own
 reason rather than a bare `402`.
 
-Two details worth stealing if you build your own:
+Four details worth stealing if you build your own — each one cost a debugging
+round here:
 
 - **`asset` is the SAC (`C…`), `payTo` is the classic account (`G…`).** The
   scheme invokes `transfer` on the contract; the account is what ends up
   holding the balance, which is also why it needs a trustline.
 - **Stellar USDC has seven decimals, not six.** `0.10` is `1000000` base units.
   The EVM habit is a 10× underpayment that settles quietly.
+- **v2 puts the requirements in a `payment-required` HEADER, not the body.** The
+  body is read only when `x402Version === 1`. A server that publishes perfect
+  requirements in JSON alone is invisible to a v2 client, which fails with
+  `Invalid payment required response` having never looked at them. Every 402 on
+  a gated route needs the header, including the one that says "you have a pass
+  but no payment yet".
+- **The signed payload comes back in `PAYMENT-SIGNATURE`**, with `X-PAYMENT`
+  being the v1 name. Read both.
+- **`extra.areFeesSponsored` must be in the requirements**, and it belongs to
+  the facilitator. Ask `/supported` at startup and copy what it says rather
+  than asserting it yourself.
 
 ## Why x402 here
 

@@ -24,7 +24,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const PORT = Number(process.env.PORT || 4402);
-const NETWORK = process.env.STELLAR_NETWORK || "testnet";
+// The stellar CLI's --network takes a CONFIG NAME ("testnet"), while x402
+// takes a CAIP-2 id ("stellar:testnet"). They are different namespaces and
+// feeding one to the other fails with "Invalid name". Kept separate on
+// purpose; X402_NETWORK above is the CAIP-2 one.
+const NETWORK = process.env.PQ_NETWORK || "testnet";
 const CONTRACT_ID =
   process.env.PQ_CONTRACT_ID || "CD72SHMVQ3VLFBMVB4525PYMI42MBJBT3GTP2Q7HFENGNEVMFCRDFFA3";
 const NUM_QUERIES = Number(process.env.PQ_QUERIES || 40);
@@ -48,6 +52,33 @@ const X402_NETWORK = process.env.X402_NETWORK || "stellar:testnet";
 /// an EVM habit expects; getting this wrong is a 10x payment.
 const PRICE_BASE_UNITS = String(Math.round(Number(PRICE_USD) * 1e7));
 
+/// What the facilitator says it supports, discovered once at startup rather
+/// than hardcoded. The `extra` block travels into the requirements: the Stellar
+/// exact scheme refuses to build a payment unless it finds
+/// `areFeesSponsored: true` there, and that flag is the facilitator's to
+/// assert, not ours to claim on its behalf. A server that hardcodes it lies
+/// the moment the facilitator changes its mind.
+let SUPPORTED_EXTRA = null;
+
+async function discoverFacilitator() {
+  const headers = { "Content-Type": "application/json" };
+  if (OZ_API_KEY) headers.Authorization = `Bearer ${OZ_API_KEY}`;
+  const r = await fetch(`${FACILITATOR_URL}/supported`, {
+    method: "POST",
+    headers,
+    body: "{}",
+  });
+  if (!r.ok) throw new Error(`facilitator /supported ${r.status}: ${await r.text()}`);
+  const { kinds } = await r.json();
+  const kind = (kinds || []).find(
+    (k) => k.network === X402_NETWORK && k.scheme === "exact"
+  );
+  if (!kind)
+    throw new Error(`facilitator supports no exact scheme on ${X402_NETWORK}`);
+  SUPPORTED_EXTRA = kind.extra ?? {};
+  return SUPPORTED_EXTRA;
+}
+
 /// One x402 accepts-entry, the shape the v2 schema validates against.
 function paymentRequirements() {
   return {
@@ -57,7 +88,25 @@ function paymentRequirements() {
     asset: USDC_SAC,
     payTo: PAY_TO,
     maxTimeoutSeconds: 60,
+    ...(SUPPORTED_EXTRA ? { extra: SUPPORTED_EXTRA } : {}),
   };
+}
+
+/// The v2 requirements, as the base64 header a v2 client actually reads. The
+/// body copy is for humans and v1; a client that finds no header concludes the
+/// endpoint is not x402 at all.
+function paymentRequiredHeader(port) {
+  const pr = {
+    x402Version: 2,
+    resource: {
+      url: `http://localhost:${port}/premium`,
+      description: "post-quantum-gated paid API",
+      mimeType: "application/json",
+      serviceName: "pq402",
+    },
+    accepts: [MOCK_PAYMENT ? { ...paymentRequirements(), mock: true } : paymentRequirements()],
+  };
+  return { "payment-required": Buffer.from(JSON.stringify(pr)).toString("base64url") };
 }
 
 /// Ask the facilitator to check, then to settle. Returns the settlement body
@@ -452,15 +501,26 @@ const server = createServer(async (req, res) => {
 
   if (req.method === "GET" && url.pathname === "/premium") {
     const pass = req.headers["x-pq-pass"];
-    const payment = req.headers["x-payment"];
+    // v2 sends the signed payload in PAYMENT-SIGNATURE; X-PAYMENT is the v1
+    // name and is still accepted so a v1 client is not broken by this server.
+    const payment =
+      req.headers["payment-signature"] || req.headers["x-payment"];
     if (pass && passes.has(pass)) {
       if (!payment)
-        return json(res, 402, { error: "pass ok, payment missing", mock: MOCK_PAYMENT });
+        return json(
+          res, 402,
+          { error: "pass ok, payment missing", mock: MOCK_PAYMENT },
+          paymentRequiredHeader(PORT)
+        );
 
       let settlement = null;
       if (MOCK_PAYMENT) {
         if (payment !== "mock-settled")
-          return json(res, 402, { error: "pass ok, payment missing", mock: true });
+          return json(
+            res, 402,
+            { error: "pass ok, payment missing", mock: true },
+            paymentRequiredHeader(PORT)
+          );
       } else {
         // Real lane: decode the client's signed auth entries, have the
         // facilitator check them, and only then have it settle on Stellar.
@@ -507,6 +567,22 @@ const server = createServer(async (req, res) => {
     const round = freshRound();
     const roundHex = leU64Hex(round);
     challenges.set(roundHex, Date.now());
+    // v2 carries the requirements in a PAYMENT-REQUIRED header, base64 of the
+    // same JSON. The body is only read for v1, so a server that publishes the
+    // requirements in the body alone is invisible to a v2 client — it fails
+    // with "Invalid payment required response" having never looked at them.
+    const paymentRequired = {
+      x402Version: 2,
+      resource: {
+        url: `http://localhost:${PORT}/premium`,
+        description: "post-quantum-gated paid API",
+        mimeType: "application/json",
+        serviceName: "pq402",
+      },
+      accepts: [
+        MOCK_PAYMENT ? { ...paymentRequirements(), mock: true } : paymentRequirements(),
+      ],
+    };
     return json(
       res, 402,
       {
@@ -540,8 +616,9 @@ const server = createServer(async (req, res) => {
               unlock: "POST /pq/unlock",
             },
       },
-      RELATION_MODE
-        ? {
+      {
+        ...(RELATION_MODE
+          ? {
             "x-pq-action": leU64Hex(ACTION),
             "x-pq-challenge": roundHex,
             "x-pq-contract": RELATION_CONTRACT,
@@ -554,7 +631,12 @@ const server = createServer(async (req, res) => {
             "x-pq-challenge": roundHex,
             "x-pq-contract": CONTRACT_ID,
             "x-pq-queries": String(NUM_QUERIES),
-          }
+          }),
+        // The v2 requirements ride here, not in the body.
+        "payment-required": Buffer.from(JSON.stringify(paymentRequired)).toString(
+          "base64url"
+        ),
+      }
     );
   }
 
@@ -563,6 +645,22 @@ const server = createServer(async (req, res) => {
 
 async function boot() {
   if (RELATION_MODE) await recomputeRoot();
+  if (!MOCK_PAYMENT) {
+    try {
+      const extra = await discoverFacilitator();
+      console.log(
+        `facilitator ${FACILITATOR_URL} → exact/${X402_NETWORK}, ` +
+          `extra ${JSON.stringify(extra)}`
+      );
+    } catch (e) {
+      console.error(
+        `refusing to start: ${e.message}\n` +
+          `set OZ_API_KEY (https://channels.openzeppelin.com/testnet/gen), or run ` +
+          `MOCK_PAYMENT=1 to exercise the proof lane alone.`
+      );
+      process.exit(1);
+    }
+  }
   server.listen(PORT, () => {
     console.log(
       RELATION_MODE
