@@ -84,7 +84,7 @@ sequenceDiagram
 
     A->>S: GET /premium
     S-->>A: 402 + payment-required header<br/>+ post-quantum challenge
-    Note over A: proves locally, ~12 ms<br/>secret never leaves the machine
+    Note over A: proves locally, 7 ms median<br/>secret never leaves the machine
     A->>S: POST /pq/unlock {proof, publics}
     S->>V: spend(proof, publics)
     V->>L: verify STARK + burn nullifier
@@ -175,7 +175,7 @@ agent → GET /premium
      ← 402  { accepts: [ exact, USDC SAC, amount, payTo ],
               pq_required: { contract, relation, challenge } }
 
-agent   proves the credential locally           ~12 ms
+agent   proves the credential locally           7 ms median
 agent → POST /pq/unlock  { proof, publics }
 server→ Soroban: spend(proof, publics)          verify + burn, one tx
      ← { pass, burn_tx }                        the chain decided
@@ -184,6 +184,10 @@ agent → GET /premium  + PAYMENT-SIGNATURE + X-PQ-PASS
 server→ facilitator /verify   then   /settle    USDC moves on Stellar
      ← 200 + the goods + settlement tx hash
 ```
+
+Proving is 7 ms at the median, 6 to 11 across fifteen runs on an ordinary
+laptop, process startup included — measured rather than estimated, because a
+number in a README is a claim like any other.
 
 Verify precedes settle deliberately: settle moves money, so a payload that
 fails verification must never reach it. A refusal returns the facilitator's own
@@ -242,8 +246,8 @@ app.get("/weather", pay, (req, res) => res.json({ temp: 24, settled_by: req.x402
 
 It encodes the four protocol details above as behaviour rather than as advice,
 and it fails at startup — with the command that fixes it — rather than
-advertising a price it cannot settle. Ten offline tests pin the shaping,
-including one that a failed verify never reaches settle.
+advertising a price it cannot settle. Offline tests pin the shaping, including
+one asserting that a failed verify never reaches settle.
 
 Proven on something other than its birthplace, and from the registry rather
 than the working tree: `examples/second-app` is a weather API with no
@@ -329,6 +333,18 @@ without `--yes`, and returns a distinct exit code for each way it can refuse:
 
 `3` and `6` are separate on purpose: a script should stop and alert on the
 first and simply re-run with `--yes` on the second.
+
+## Tests
+
+Everything here runs with no facilitator key, no funded wallet, and no network.
+What needs money is evidenced by transaction hashes instead.
+
+| suite | what it covers | |
+|---|---|---|
+| `node --test cli/test/*.mjs` | the agent's pure logic: 402 parsing, `--max`, exit codes, price formatting | 16 |
+| `packages/x402-stellar-paywall` — `npm test` | protocol shaping, and that a failed verify never reaches settle | 17 |
+| `packages/x402-stellar-paywall-py` — `pytest` | the same, in Python | 9 |
+| `contracts/agent-treasury` — `cargo test` | the allow-list, the rolling cap, and that a refusal costs no budget | 4 |
 
 ## Honest limits
 

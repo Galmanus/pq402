@@ -163,7 +163,7 @@ from the working tree, settles the same way:
 npm test    # node --test test/*.mjs
 ```
 
-Ten of them, all offline. What they pin is the protocol shaping — that the
+Seventeen of them, all offline. What they pin is the protocol shaping — that the
 requirements carry the facilitator's own `extra` rather than a claim made on
 its behalf, that the challenge decodes to the same document it advertises, that
 both payment header names are read, that a bad key fails with the command that
