@@ -1,0 +1,14 @@
+{
+  "name": "stellar-agent-pay",
+  "version": "0.1.0",
+  "description": "A Stellar CLI plugin that pays an x402/402-gated URL from the terminal or a script. `stellar agent-pay <url>` completes the 402 → pay → unlock loop using your existing stellar keys.",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "stellar-agent-pay": "bin/stellar-agent-pay.mjs"
+  },
+  "dependencies": {
+    "@x402/fetch": "^2.20.0",
+    "@x402/stellar": "^2.20.0"
+  }
+}

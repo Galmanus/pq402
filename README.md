@@ -1,0 +1,168 @@
+# pq402
+
+**An x402 paid API on Stellar whose unlock also requires a post-quantum
+credential — and a CLI agent that completes the whole loop from the terminal.**
+
+Stellar Summit SP 2026 · Payments and Agent Tooling (SDF DevEx) ·
+sub-lane 3A, Agentic Payments (x402 / MPP)
+
+```
+$ stellar agent-pay http://localhost:4402/premium --max 0.10
+← 402  price 0.10 USDC  +  post-quantum challenge
+proving…                                        12ms
+PQ verified ON-CHAIN by CD72SHMV… (testnet, 341ms) → pass granted
+nullifier burned by consensus: https://stellar.expert/explorer/testnet/tx/…
+paying…                                         x402 settled
+← 200 unlocked
+```
+
+## What this is
+
+Most agent-payment demos answer one question: *did the agent pay?* This one
+answers a second that metered APIs actually have: *is this agent allowed to buy
+this at all?* — and answers it without learning who the agent is.
+
+Two independent gates on one request:
+
+| gate | mechanism | who decides |
+|---|---|---|
+| **payment** | x402 `exact` scheme, USDC over its Soroban Asset Contract, settled through the OpenZeppelin Channels facilitator | Stellar consensus |
+| **credential** | a hash-based STARK proving the caller holds a valid credential, verified by a Soroban contract, nullifier burned in contract storage | Stellar consensus |
+
+Neither gate trusts the server. The paywall cannot forge a settlement, and it
+cannot decide the credential is valid — it forwards a proof to a deployed
+contract and reads the verdict. Replay is refused by the chain rather than by
+an in-process set, so restarting the server does not reopen a spent credential.
+
+## Run it
+
+```bash
+git clone https://github.com/Galmanus/pq402 && cd pq402
+cp .env.example .env      # then fill in, see below
+node server.mjs           # terminal 1
+./demo.sh                 # terminal 2
+```
+
+Four things go in `.env`. Two are web forms with a captcha and cannot be
+scripted:
+
+1. **An OZ Channels testnet key** — [channels.openzeppelin.com/testnet/gen](https://channels.openzeppelin.com/testnet/gen).
+   Required on testnet too; every facilitator endpoint answers `401` without it.
+2. **Testnet USDC for the payer** — [faucet.circle.com](https://faucet.circle.com),
+   pick Stellar testnet.
+3. A recipient `G...` account with a USDC trustline (`STELLAR_RECIPIENT`).
+4. The payer's `S...` secret, with a USDC trustline (`STELLAR_SECRET_KEY`).
+
+`setup.mjs` does the parts that can be automated — it generates both keypairs,
+friendbots them, and adds the trustlines:
+
+```bash
+node setup.mjs
+```
+
+To try the credential half with no key and no funded wallet, set
+`MOCK_PAYMENT=1`. That stubs **only** the settlement; the proof still goes to
+the chain and the nullifier still burns.
+
+## The flow
+
+```
+agent → GET /premium
+     ← 402  { accepts: [ exact, USDC SAC, amount, payTo ],
+              pq_required: { contract, relation, challenge } }
+
+agent   proves the credential locally           ~12 ms
+agent → POST /pq/unlock  { proof, publics }
+server→ Soroban: spend(proof, publics)          verify + burn, one tx
+     ← { pass, burn_tx }                        the chain decided
+
+agent → GET /premium  + X-PAYMENT + X-PQ-PASS
+server→ facilitator /verify   then   /settle    USDC moves on Stellar
+     ← 200 + the goods + settlement tx hash
+```
+
+Verify precedes settle deliberately: settle moves money, so a payload that
+fails verification must never reach it. A refusal returns the facilitator's own
+reason rather than a bare `402`.
+
+Two details worth stealing if you build your own:
+
+- **`asset` is the SAC (`C…`), `payTo` is the classic account (`G…`).** The
+  scheme invokes `transfer` on the contract; the account is what ends up
+  holding the balance, which is also why it needs a trustline.
+- **Stellar USDC has seven decimals, not six.** `0.10` is `1000000` base units.
+  The EVM habit is a 10× underpayment that settles quietly.
+
+## Why x402 here
+
+x402 lets the agent hold **zero XLM**. It signs Soroban authorization entries
+rather than transaction envelopes; the facilitator assembles the transaction,
+pays the fee, and submits. For an autonomous agent that is the difference
+between maintaining a funded gas wallet and holding only the asset it intends
+to spend.
+
+MPP Charge is the better pick when you would rather not depend on a facilitator
+at all — it settles directly through the SAC. The two are complementary; this
+repo takes the x402 path because fee sponsorship is what keeps an agent's
+wallet simple.
+
+## Layout
+
+```
+server.mjs   the paywall: 402, the PQ challenge, verify-then-settle
+booth.mjs    the same flow driven from a browser, for demoing on a screen
+demo.sh      one command, end to end
+setup.mjs    generates and funds the two testnet accounts
+bin/         prover binaries, built from the riverrun-m31 Rust crate
+cli/         `stellar agent-pay`, the plugin the agent runs
+ui/          the booth's page
+```
+
+### The CLI plugin
+
+`cli/` installs as an external `stellar` subcommand, so it composes with the
+keys you already manage:
+
+```bash
+cd cli && ./install.sh
+stellar agent-pay <url> --max 0.10 --source my-key
+```
+
+It prints the price before paying, enforces `--max`, refuses to spend in a pipe
+without `--yes`, and returns a distinct exit code for each way it can refuse —
+so a script can tell "too expensive" from "credential rejected" from
+"settlement failed" without parsing prose.
+
+## Honest limits
+
+This section exists because a payments demo that overstates is worth less than
+one that under-delivers.
+
+- **The proof lane is never mocked.** The verdict comes from a deployed
+  contract and the nullifier burn is a real transaction with an explorer link.
+  `MOCK_PAYMENT=1` stubs the settlement only, and when it is on the 402 says so
+  in its own body.
+- **Post-quantum describes the proof system, not Stellar.** The STARK is
+  hash-based and survives Shor. The transaction carrying it is signed with
+  Ed25519, which does not. This is a post-quantum component running on a
+  pre-quantum chain, and the other half is the network's to supply.
+- **The credential relation used here publishes more than it should.** This
+  demo runs the project's *legacy* relation, which puts the full permutation
+  state in the public inputs. The permutation is a bijection, so inverting it
+  on published data recovers the credential secret. The repair — publishing a
+  truncated digest — is implemented and deployed in the privacy work this demo
+  grew out of; porting it here means rebuilding `bin/` and redeploying the
+  verifier. Until that lands, treat the credential here as an authorization
+  mechanism and not a privacy one.
+- **Single use survives a restart, not a redeploy.** The nullifier lives in
+  contract storage, so the server can restart freely. Deploying a fresh
+  verifier starts a fresh nullifier set.
+
+## Built on
+
+- [x402](https://github.com/coinbase/x402) — `@x402/fetch`, `@x402/stellar`
+- [OpenZeppelin Channels](https://channels.openzeppelin.com) as the facilitator
+- [Plonky3](https://github.com/Plonky3/Plonky3) for the Circle STARK machinery
+- The credential relation and its Soroban verifier come from riverrun
+
+MIT.
