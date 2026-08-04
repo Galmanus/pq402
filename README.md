@@ -137,7 +137,7 @@ node setup.mjs            # generates + funds both accounts, writes them to .env
 sync. If the server refuses to start it prints why, rather than letting the
 demo fail three steps later about something unrelated.
 
-Four things go in `.env`:
+Four things go in `.env`, and `setup.mjs` fills in three of them:
 
 1. **An OZ Channels testnet key.** A plain GET mints one:
    ```bash
@@ -150,7 +150,8 @@ Four things go in `.env`:
 2. **Testnet USDC for the payer** — [faucet.circle.com](https://faucet.circle.com),
    pick Stellar testnet. This one is captcha-gated and has to be done by hand.
 3. A recipient `G...` account with a USDC trustline (`STELLAR_RECIPIENT`).
-4. The payer's `S...` secret, with a USDC trustline (`STELLAR_SECRET_KEY`).
+4. A stellar CLI identity holding that USDC (`PQ_SOURCE`) — the agent signs
+   through the keystore, not through a secret in `.env`.
 
 `setup.mjs` does everything scriptable: it generates both keypairs, funds them
 with friendbot, adds the USDC trustlines, and writes `STELLAR_RECIPIENT` and
