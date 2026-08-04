@@ -10,3 +10,7 @@ contracts/agent-treasury/demo/package-lock.json
 #   gh auth refresh -h github.com -s workflow
 #   git add -f .github && git commit && git push
 .github/
+.venv/
+dist/
+__pycache__/
+*.egg-info/

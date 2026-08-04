@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "x402-stellar-paywall"
+version = "0.2.0"
+description = "One-line x402 paywall for Stellar, with a facilitator preset. FastAPI and a framework-free core."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Manuel Guilherme Galmanus" }]
+requires-python = ">=3.9"
+dependencies = []
+keywords = ["x402", "stellar", "soroban", "paywall", "agentic-payments", "usdc", "fastapi"]
+classifiers = [
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Framework :: FastAPI",
+  "Topic :: Internet :: WWW/HTTP",
+]
+
+[project.urls]
+Homepage = "https://github.com/Galmanus/pq402/tree/master/packages/x402-stellar-paywall-py"
+Repository = "https://github.com/Galmanus/pq402"
+
+[project.optional-dependencies]
+fastapi = ["fastapi>=0.100"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/x402_stellar_paywall"]
