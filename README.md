@@ -116,10 +116,19 @@ flowchart TD
 
 ```bash
 git clone https://github.com/Galmanus/pq402 && cd pq402
-cp .env.example .env      # then fill in, see below
-node server.mjs           # terminal 1
-./demo.sh                 # terminal 2
+npm install               # the server and setup script
+(cd cli && npm install)   # the agent
+
+cp .env.example .env
+node setup.mjs            # generates + funds both accounts, writes them to .env
+# → fund the payer with USDC and paste a facilitator key, see below
+
+./demo.sh                 # starts the server itself and runs the whole loop
 ```
+
+`demo.sh` starts its own server, so there is no second terminal to keep in
+sync. If the server refuses to start it prints why, rather than letting the
+demo fail three steps later about something unrelated.
 
 Four things go in `.env`:
 
@@ -136,11 +145,15 @@ Four things go in `.env`:
 3. A recipient `G...` account with a USDC trustline (`STELLAR_RECIPIENT`).
 4. The payer's `S...` secret, with a USDC trustline (`STELLAR_SECRET_KEY`).
 
-`setup.mjs` does the parts that can be automated — it generates both keypairs,
-friendbots them, and adds the trustlines:
+`setup.mjs` does everything scriptable: it generates both keypairs, funds them
+with friendbot, adds the USDC trustlines, and writes `STELLAR_RECIPIENT` and
+`STELLAR_SECRET_KEY` into your `.env`. What it cannot do is the captcha at the
+Circle faucet — it prints the payer address to paste there.
+
+The facilitator key is one command:
 
 ```bash
-node setup.mjs
+curl -s https://channels.openzeppelin.com/testnet/gen   # → {"apiKey":"…"}
 ```
 
 To try the credential half with no key and no funded wallet, set

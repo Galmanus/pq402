@@ -19,10 +19,28 @@ if [ ! -x "$PROVER" ]; then
   exit 1
 fi
 
+# Load .env if it exists. Without this the server starts with no recipient and
+# no facilitator key, and every failure downstream points somewhere else.
+if [ -f "$HERE/.env" ]; then set -a; . "$HERE/.env"; set +a; fi
+
 echo "▸ starting pq402 server (payment lane ${MOCK_PAYMENT:+MOCK }${MOCK_PAYMENT:-REAL}, PQ lane real, on-chain spend)"
 (cd "$HERE" && PORT="$PORT" node server.mjs > "$WORK/server.log" 2>&1) &
 SRV=$!
-for i in $(seq 1 20); do curl -sf "http://localhost:$PORT/" > /dev/null && break; sleep 0.3; done
+UP=0
+for i in $(seq 1 40); do
+  if curl -sf "http://localhost:$PORT/" > /dev/null 2>&1; then UP=1; break; fi
+  sleep 0.3
+done
+# A dead server used to be indistinguishable from a slow one: the loop ran out
+# and the demo carried on against nothing, failing three steps later with a
+# message about credentials. Say what actually happened, once.
+if [ "$UP" -ne 1 ]; then
+  echo
+  echo "the server did not come up. it said:"
+  echo
+  sed 's/^/    /' "$WORK/server.log"
+  exit 1
+fi
 
 echo "▸ issuing a credential (secret stays with the agent; the server learns only the leaf)"
 SECRET="$(python3 -c "import struct,secrets

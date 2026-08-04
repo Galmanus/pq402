@@ -23,6 +23,25 @@ const payer = Keypair.random();
 await Promise.all([friendbot(recipient.publicKey()), friendbot(payer.publicKey())]);
 await new Promise(r => setTimeout(r, 3000));
 await Promise.all([trustline(recipient), trustline(payer)]);
+// Write the keys into .env rather than printing them and hoping. Four values
+// copied by hand is four chances to paste a secret where a public key goes,
+// and the resulting error names neither.
+const envPath = new URL("./.env", import.meta.url);
+let env = "";
+try {
+  env = await fs.readFile(envPath, "utf8");
+} catch {
+  env = await fs.readFile(new URL("./.env.example", import.meta.url), "utf8");
+}
+const put = (k, v) =>
+  (env = env.match(new RegExp(`^${k}=.*$`, "m"))
+    ? env.replace(new RegExp(`^${k}=.*$`, "m"), `${k}=${v}`)
+    : `${env.trimEnd()}\n${k}=${v}\n`);
+put("STELLAR_RECIPIENT", recipient.publicKey());
+put("STELLAR_SECRET_KEY", payer.secret());
+await fs.writeFile(envPath, env);
+console.log("\nwrote STELLAR_RECIPIENT and STELLAR_SECRET_KEY into .env");
+
 console.log("\nFund the payer with USDC:  https://faucet.circle.com  (Stellar testnet)");
 console.log("Get a facilitator key:     https://channels.openzeppelin.com/testnet/gen\n");
 console.log(JSON.stringify({
