@@ -3,3 +3,10 @@ node_modules/
 *.log
 target/
 contracts/agent-treasury/demo/package-lock.json
+
+# The CI workflow is written and ready at .github/workflows/ci.yml, but the
+# push token lacks GitHub's `workflow` scope and the remote rejects it. Ignored
+# so a stray `git add -A` does not block every other push. To land it:
+#   gh auth refresh -h github.com -s workflow
+#   git add -f .github && git commit && git push
+.github/

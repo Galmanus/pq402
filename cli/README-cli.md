@@ -50,7 +50,10 @@ The flow:
 
 1. It GETs the URL unpaid. If the server does not ask for payment, you just get the body — no key touched, nothing spent.
 2. On a `402`, it reads the payment requirements and shows you the amount, asset, network, and recipient **before** any money moves.
-3. `--max` is enforced at that point. Over the cap, it refuses with exit code `3` and never signs.
+3. `--max` is enforced at that point. Over the cap it refuses with exit code
+   `3` and never signs; inside the cap but unconfirmed in a pipe it refuses
+   with `6`. Two codes, because a script should stop and alert on the first and
+   simply re-run with `--yes` on the second.
 4. In a script (no TTY), it refuses unless `--yes` is given — a bare pipe cannot silently spend.
 5. Otherwise it reads the secret from `stellar keys secret <source>`, signs the Soroban auth entries, the facilitator settles, and you get the unlocked body on stdout.
 

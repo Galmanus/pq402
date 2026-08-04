@@ -228,7 +228,8 @@ app.get("/weather", pay, (req, res) => res.json({ temp: 24, settled_by: req.x402
 
 It encodes the four protocol details above as behaviour rather than as advice,
 and it fails at startup — with the command that fixes it — rather than
-advertising a price it cannot settle.
+advertising a price it cannot settle. Ten offline tests pin the shaping,
+including one that a failed verify never reaches settle.
 
 Proven on something other than its birthplace: `examples/second-app` is a
 weather API with no credential logic anywhere in it, gated by that one line and
@@ -293,9 +294,19 @@ stellar agent-pay <url> --max 0.10 --source my-key
 ```
 
 It prints the price before paying, enforces `--max`, refuses to spend in a pipe
-without `--yes`, and returns a distinct exit code for each way it can refuse —
-so a script can tell "too expensive" from "credential rejected" from
-"settlement failed" without parsing prose.
+without `--yes`, and returns a distinct exit code for each way it can refuse:
+
+| code | meaning |
+|---|---|
+| `0` | unlocked |
+| `2` | usage |
+| `3` | price exceeds `--max` |
+| `4` | payment or settlement failed |
+| `5` | credential missing or refused by the chain |
+| `6` | inside the cap, but unconfirmed in a pipe |
+
+`3` and `6` are separate on purpose: a script should stop and alert on the
+first and simply re-run with `--yes` on the second.
 
 ## Honest limits
 

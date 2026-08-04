@@ -17,11 +17,10 @@ test("parseArgs: help with no url", () => {
   assert.equal(parseArgs([]).url, undefined);
 });
 
-test("money: fixed decimal, no scientific notation, trims zeros", () => {
-  assert.equal(money(0.1), "$0.1");
+test("money: fixed decimal, never scientific notation", () => {
   assert.equal(money(0.01), "$0.01");
-  assert.equal(money(5e-9), "$0"); // below 7-decimal display resolution → trims to $0
-  assert.equal(money(1), "$1");
+  // Below Stellar's seven-decimal resolution there is nothing to show.
+  assert.equal(money(5e-9), "$0.00");
   assert.equal(money(null), "?");
 });
 
@@ -144,4 +143,17 @@ test("the header wins over the body, because v2 need not fill the body", () => {
 test("no price at all leaves usd null rather than guessing zero", () => {
   const r = parseRequirements({ accepts: [{}] });
   assert.equal(r.usd, null, "a guessed 0 would sail past --max, which is the bug this replaces");
+});
+
+test("money reads as money", () => {
+  // "$0.1" is the sort of thing that makes someone look twice at a price they
+  // should be able to glance at.
+  assert.equal(money(0.1), "$0.10");
+  assert.equal(money(1), "$1.00");
+  assert.equal(money(12.345), "$12.345");
+  // Sub-cent amounts keep their precision — an agent paying per call may well
+  // be spending fractions of a cent, and rounding those to $0.00 would hide
+  // the number the --max check is about to compare against.
+  assert.equal(money(0.0000015), "$0.0000015");
+  assert.equal(money(null), "?");
 });

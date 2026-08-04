@@ -23,7 +23,13 @@ export function parseArgs(argv) {
 // A clean decimal for display — never scientific notation, trailing zeros trimmed.
 export function money(usd) {
   if (usd == null) return "?";
-  return "$" + usd.toFixed(7).replace(/\.?0+$/, "");
+  // Money reads as money: two decimals unless the amount genuinely needs more.
+  // Stripping trailing zeros turned 0.10 into "$0.1", which is the sort of
+  // thing that makes someone look twice at a price they should be able to
+  // glance at. Sub-cent amounts keep their precision, up to Stellar's seven.
+  const seven = usd.toFixed(7).replace(/0+$/, "");
+  const decimals = Math.max(2, seven.split(".")[1]?.length ?? 0);
+  return "$" + usd.toFixed(Math.min(decimals, 7));
 }
 
 // CAIP-2 network id the x402 stellar client expects.

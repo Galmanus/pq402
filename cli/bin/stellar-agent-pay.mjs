@@ -36,9 +36,9 @@ OPTIONS:
   -h, --help         show this help
 
 EXIT CODES:
-  0 unlocked (paid or was free)   3 payment exceeds --max
-  2 usage / no url                4 payment or settlement failed
-  5 PQ credential missing or refused`;
+  0 unlocked (paid or was free)   4 payment or settlement failed
+  2 usage / no url                5 PQ credential missing or refused
+  3 payment exceeds --max         6 confirmation needed, none given`;
 
 const log = (quiet, ...m) => {
   if (!quiet) console.error(...m);
@@ -103,13 +103,16 @@ async function main() {
     return 3;
   }
   if (!o.yes && req.usd != null) {
-    // Non-interactive callers must pass --yes; a bare pipe should not silently spend.
+    // Distinct from 3 on purpose. "Over your budget" and "inside your budget
+    // but you did not confirm" call for different reactions from a script: the
+    // first should stop and alert, the second should re-run with --yes. Both
+    // returning 3 made them indistinguishable to the only reader that matters.
     if (!process.stdin.isTTY) {
       log(o.quiet, `refused: would pay ${money(req.usd)} but no --yes given (non-interactive)`);
-      return 3;
+      return 6;
     }
     log(o.quiet, `about to pay ${money(req.usd)} ${req.asset}. re-run with --yes to confirm.`);
-    return 3;
+    return 6;
   }
 
   // 3b. Post-quantum gate: if the 402 carries a PQ challenge, prove the

@@ -9,7 +9,20 @@
     "./express": "./src/express.mjs",
     "./hono": "./src/hono.mjs"
   },
-  "keywords": ["x402", "stellar", "soroban", "paywall", "agentic-payments", "usdc"],
+  "keywords": [
+    "x402",
+    "stellar",
+    "soroban",
+    "paywall",
+    "agentic-payments",
+    "usdc"
+  ],
   "license": "MIT",
-  "files": ["src", "README.md"]
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test test/*.mjs"
+  }
 }

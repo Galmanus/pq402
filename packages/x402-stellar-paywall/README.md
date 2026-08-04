@@ -113,4 +113,18 @@ logic in it at all — which an agent paid on Stellar testnet:
 That transaction is successful at ledger 3,966,679, and its fee was paid by
 `GA6THKUY…` — the facilitator, not the agent.
 
+## Tests
+
+```bash
+npm test    # node --test test/*.mjs
+```
+
+Ten of them, all offline. What they pin is the protocol shaping — that the
+requirements carry the facilitator's own `extra` rather than a claim made on
+its behalf, that the challenge decodes to the same document it advertises, that
+both payment header names are read, that a bad key fails with the command that
+fixes it, and that a failed verify never reaches settle. That last one has a
+test because settle moves money and the ordering is the only thing standing
+between a rejected payload and a real transfer.
+
 MIT.
