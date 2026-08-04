@@ -182,9 +182,11 @@
 
 <footer>
   <b>Escopo honesto:</b> o secret do agente vive no booth só pra demo (em produção, no cliente:
-  <span class="txlink">stellar agent-pay --pq-secret</span>). A lane de pagamento é MOCK e declarada;
-  a lane pós-quântica nunca é mockada. Provas são sound, não witness-hiding ainda (medido e
-  precificado em docs/PRIVACY.md).
+  <span class="txlink">stellar agent-pay --pq-secret</span>). As duas lanes são reais: o pagamento
+  liquida em USDC pelo facilitador e a credencial é julgada por um contrato Soroban, que queima o
+  nullifier. O único passo somente-leitura é a checagem de replay, rotulada como simulação porque
+  é isso que ela é. O leaf é entrada pública, então o servidor sabe QUAL credencial pagou;
+  esconder isso é roadmap documentado, não entregue aqui.
 </footer>
 
 <script>

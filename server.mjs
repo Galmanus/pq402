@@ -11,10 +11,15 @@
 // it issued, nullifier never seen before (anti-replay), and then asks the
 // deployed m31-verify contract — not local code — whether the proof stands.
 //
-// Honest scope: the leaf is a public input, so the server knows WHICH
-// credential paid; hiding that (membership with a private leaf) is documented
-// roadmap, not shipped. Payment side runs MOCK unless a real x402 facilitator
-// is configured; the PQ verification is never mocked.
+// Honest scope. The leaf is a public input, so the server knows WHICH
+// credential paid; hiding that — membership under a root with a private path —
+// is documented roadmap, not shipped here.
+//
+// BOTH lanes are real by default. The payment settles through the facilitator
+// and the credential is judged by a deployed contract. MOCK_PAYMENT=1 opts
+// into a settlement stub for demoing the proof lane with no key and no funded
+// wallet, and when it is on the 402 says so in its own body; the PQ lane has
+// no stub at all.
 
 import { execFile } from "node:child_process";
 import { randomBytes } from "node:crypto";

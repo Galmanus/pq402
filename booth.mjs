@@ -13,8 +13,12 @@
 //
 // Honest scope, also printed in the UI: the demo agent's secret lives in this
 // process so a booth visitor needs zero setup; in production the secret is
-// client-side (see stellar agent-pay --pq-secret). Payment lane is MOCK,
-// the PQ lane is never mocked.
+// client-side (see stellar agent-pay --pq-secret).
+//
+// Both lanes are real. The payment goes through the same `stellar agent-pay`
+// plugin the terminal demo uses, so it settles on Stellar; the credential is
+// judged by a deployed contract. The one read-only step is the replay check,
+// which the UI labels as a simulation because that is what it is.
 //
 // Run:  node server.mjs &   (port 4402, leaf mode)
 //       node booth.mjs      (port 4403, open in a browser)
