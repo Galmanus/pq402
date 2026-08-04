@@ -23,7 +23,10 @@ fi
 # no facilitator key, and every failure downstream points somewhere else.
 if [ -f "$HERE/.env" ]; then set -a; . "$HERE/.env"; set +a; fi
 
-echo "▸ starting pq402 server (payment lane ${MOCK_PAYMENT:+MOCK }${MOCK_PAYMENT:-REAL}, PQ lane real, on-chain spend)"
+# MOCK_PAYMENT=0 is set-but-false; `${x:+…}` only tests set-ness, so the label
+# read "MOCK 0" for a run that was settling for real.
+if [ "${MOCK_PAYMENT:-0}" = "1" ]; then LANE="MOCK"; else LANE="REAL"; fi
+echo "▸ starting pq402 server (payment lane $LANE, PQ lane real, on-chain spend)"
 (cd "$HERE" && PORT="$PORT" node server.mjs > "$WORK/server.log" 2>&1) &
 SRV=$!
 UP=0

@@ -4,6 +4,8 @@
 //
 //   node setup.mjs
 //
+import fs from "node:fs/promises";
+import { execFileSync } from "node:child_process";
 import { Keypair, Horizon, Networks, TransactionBuilder, Operation, Asset, BASE_FEE } from "@stellar/stellar-sdk";
 const USDC_ISSUER = "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5";
 const horizon = new Horizon.Server("https://horizon-testnet.stellar.org");
@@ -39,6 +41,25 @@ const put = (k, v) =>
     : `${env.trimEnd()}\n${k}=${v}\n`);
 put("STELLAR_RECIPIENT", recipient.publicKey());
 put("STELLAR_SECRET_KEY", payer.secret());
+
+// Register the payer as a NAMED stellar identity. The agent CLI resolves its
+// signing key through `stellar keys secret <name>`, and the server submits the
+// credential spend the same way, so without this the last two steps fail on a
+// key that exists but has no name.
+const IDENTITY = process.env.PQ_IDENTITY || "pq402-payer";
+try {
+  execFileSync("stellar", ["keys", "add", IDENTITY, "--secret-key", "--overwrite"], {
+    input: payer.secret() + "\n",
+    stdio: ["pipe", "ignore", "ignore"],
+  });
+  put("PQ_SOURCE", IDENTITY);
+  console.log(`registered the payer as stellar identity "${IDENTITY}"`);
+} catch {
+  console.log(
+    `could not run \`stellar keys add ${IDENTITY}\` — install the Stellar CLI, ` +
+      `then: echo ${payer.secret()} | stellar keys add ${IDENTITY} --secret-key`
+  );
+}
 await fs.writeFile(envPath, env);
 console.log("\nwrote STELLAR_RECIPIENT and STELLAR_SECRET_KEY into .env");
 
