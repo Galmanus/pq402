@@ -5,6 +5,13 @@ judged by a deployed Soroban contract, and the payment settles USDC through the
 OpenZeppelin Channels facilitator. Every hash below is checkable on
 stellar.expert.
 
+> The run below used verifier `CD72SHMV…`, the relation that published full
+> permutation states. It has since been replaced by `CA6QM6DR…`, built from the
+> repaired relation that publishes digests, and the loop closes identically
+> against it — credential burn `11d7e987…`, settlement `d1bc8220…`. The flow,
+> the headers and the fee sponsorship are unchanged; only the public-input
+> width moved, from 48 limbs to 32.
+
 ## 0. The server refuses to start without a facilitator
 
 ```

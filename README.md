@@ -169,14 +169,15 @@ one that under-delivers.
   hash-based and survives Shor. The transaction carrying it is signed with
   Ed25519, which does not. This is a post-quantum component running on a
   pre-quantum chain, and the other half is the network's to supply.
-- **The credential relation used here publishes more than it should.** This
-  demo runs the project's *legacy* relation, which puts the full permutation
-  state in the public inputs. The permutation is a bijection, so inverting it
-  on published data recovers the credential secret. The repair — publishing a
-  truncated digest — is implemented and deployed in the privacy work this demo
-  grew out of; porting it here means rebuilding `bin/` and redeploying the
-  verifier. Until that lands, treat the credential here as an authorization
-  mechanism and not a privacy one.
+- **The credential relation publishes digests, and that took a fix.** Until
+  04/08 it published the full sixteen-limb permutation state for both the leaf
+  and the nullifier. Poseidon2 is a bijection and the context sits public
+  beside it, so one inversion on published data returned the credential secret
+  — demonstrated against a real testnet proof, in milliseconds. Both are now
+  truncated to eight limbs, which puts recovery back at `|F|^8 ≈ 2^248`, and
+  the verifier here (`CA6QM6DR…`) is built from the repaired relation. The
+  provers in `bin/` were rebuilt with it; a mismatched pair fails loudly on the
+  public-input length rather than silently.
 - **Single use survives a restart, not a redeploy.** The nullifier lives in
   contract storage, so the server can restart freely. Deploying a fresh
   verifier starts a fresh nullifier set.

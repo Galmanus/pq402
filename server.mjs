@@ -30,7 +30,7 @@ const PORT = Number(process.env.PORT || 4402);
 // purpose; X402_NETWORK above is the CAIP-2 one.
 const NETWORK = process.env.PQ_NETWORK || "testnet";
 const CONTRACT_ID =
-  process.env.PQ_CONTRACT_ID || "CD72SHMVQ3VLFBMVB4525PYMI42MBJBT3GTP2Q7HFENGNEVMFCRDFFA3";
+  process.env.PQ_CONTRACT_ID || "CA6QM6DRPVYRHFWEWNATDIKLL4P47XBI2OWVL7226WHHOTFEY2W2JKET";
 const NUM_QUERIES = Number(process.env.PQ_QUERIES || 40);
 const SOURCE = process.env.PQ_SOURCE || "riverrun-registry-deployer";
 const PRICE_USD = process.env.PRICE_USD || "0.10";
@@ -229,30 +229,35 @@ function freshRound() {
 // Split 448-byte relation publics (56 LE u64s): action ‖ round ‖ leaf ‖
 // nullifier ‖ root.
 export function splitRelationPublics(hex) {
-  if (hex.length !== 896) return null;
+  // action[8] ‖ round[8] ‖ leaf[8] ‖ nullifier[8] ‖ root[8] = 40 limbs.
+  // leaf and nullifier are DIGESTS. They were the full sixteen-limb
+  // permutation states, which published the witness: the permutation is a
+  // bijection and the context is public beside it.
+  if (hex.length !== 640) return null;
   const buf = Buffer.from(hex, "hex");
   const u64s = [];
-  for (let i = 0; i < 56; i++) u64s.push(buf.readBigUInt64LE(i * 8));
+  for (let i = 0; i < 40; i++) u64s.push(buf.readBigUInt64LE(i * 8));
   return {
     action: u64s.slice(0, 8),
     round: u64s.slice(8, 16),
-    leafHex: buf.subarray(16 * 8, 32 * 8).toString("hex"),
-    nullifierHex: buf.subarray(32 * 8, 48 * 8).toString("hex"),
-    rootHex: buf.subarray(48 * 8).toString("hex"),
+    leafHex: buf.subarray(16 * 8, 24 * 8).toString("hex"),
+    nullifierHex: buf.subarray(24 * 8, 32 * 8).toString("hex"),
+    rootHex: buf.subarray(32 * 8).toString("hex"),
   };
 }
 
-// Split 384-byte publics (48 LE u64s) into the four fields.
+// Split 256-byte publics (32 LE u64s) into the four fields:
+// action[8] ‖ round[8] ‖ leaf[8] ‖ nullifier[8], the last two being digests.
 export function splitPublics(hex) {
-  if (hex.length !== 768) return null;
+  if (hex.length !== 512) return null;
   const u64s = [];
   const buf = Buffer.from(hex, "hex");
-  for (let i = 0; i < 48; i++) u64s.push(buf.readBigUInt64LE(i * 8));
+  for (let i = 0; i < 32; i++) u64s.push(buf.readBigUInt64LE(i * 8));
   return {
     action: u64s.slice(0, 8),
     round: u64s.slice(8, 16),
-    leafHex: buf.subarray(16 * 8, 32 * 8).toString("hex"),
-    nullifierHex: buf.subarray(32 * 8).toString("hex"),
+    leafHex: buf.subarray(16 * 8, 24 * 8).toString("hex"),
+    nullifierHex: buf.subarray(24 * 8).toString("hex"),
   };
 }
 
@@ -383,7 +388,12 @@ const server = createServer(async (req, res) => {
       });
     }
     const { leaf } = body;
-    if (!/^[0-9a-f]{256}$/.test(leaf || "")) return json(res, 400, { error: "leaf must be 128 bytes hex" });
+    // The leaf is a DIGEST — eight Mersenne-31 limbs, 64 bytes. It used to be
+    // the full sixteen-limb permutation state, which published the witness:
+    // the permutation is a bijection and the context is public beside it, so
+    // inverting on the published leaf returned the credential secret.
+    if (!/^[0-9a-f]{128}$/.test(leaf || ""))
+      return json(res, 400, { error: "leaf must be 64 bytes hex (8 M31 limbs)" });
     registry.add(leaf);
     return json(res, 200, { registered: leaf.slice(0, 16) + "…", registry_size: registry.size });
   }
