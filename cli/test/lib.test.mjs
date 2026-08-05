@@ -145,6 +145,16 @@ test("no price at all leaves usd null rather than guessing zero", () => {
   assert.equal(r.usd, null, "a guessed 0 would sail past --max, which is the bug this replaces");
 });
 
+test("a non-numeric amount reads as NaN, not a low number that slips past --max", () => {
+  // The second way to defeat --max: `Number("abc")` is NaN, and `NaN > max` is
+  // false, so a non-numeric amount would slip past the cap exactly as a null
+  // one does. The CLI guards on Number.isFinite(usd), which catches both; this
+  // pins the value that guard depends on.
+  const r = parseRequirements({ accepts: [{ amount: "not-a-number", asset: "USDC" }] });
+  assert.ok(Number.isNaN(r.usd), "a non-numeric amount is NaN");
+  assert.equal(Number.isFinite(r.usd), false, "and not finite, so the CLI refuses to pay it");
+});
+
 test("money reads as money", () => {
   // "$0.1" is the sort of thing that makes someone look twice at a price they
   // should be able to glance at.

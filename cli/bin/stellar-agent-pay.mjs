@@ -98,12 +98,24 @@ async function main() {
       `on ${net}${req.payTo ? ` → ${req.payTo.slice(0, 8)}…` : ""}`
   );
 
-  // 3. Enforce the cap before any money moves.
-  if (o.max != null && req.usd != null && req.usd > o.max) {
+  // 3. The price must be a finite number, or every guard below it is decoration.
+  // `usd` is null when the 402 advertises no amount, and NaN when it advertises
+  // a non-numeric one; `NaN > max` is false, so both slip past the cap and the
+  // prompt on their `!= null` checks. The payment amount is set by the scheme
+  // reading the 402 directly, so a 402 whose price this CLI cannot read is one
+  // where --max cannot be honored. Refuse rather than pay an unknown amount.
+  if (!Number.isFinite(req.usd)) {
+    log(o.quiet, `refused: the 402 did not advertise a readable price (amount: ${req.raw ?? "none"}); ` +
+      `not paying an unknown amount, and --max cannot be enforced on one`);
+    return 4;
+  }
+
+  // 3b. Enforce the cap before any money moves.
+  if (o.max != null && req.usd > o.max) {
     log(o.quiet, `refused: ${money(req.usd)} exceeds --max ${money(o.max)}`);
     return 3;
   }
-  if (!o.yes && req.usd != null) {
+  if (!o.yes) {
     // Distinct from 3 on purpose. "Over your budget" and "inside your budget
     // but you did not confirm" call for different reactions from a script: the
     // first should stop and alert, the second should re-run with --yes. Both

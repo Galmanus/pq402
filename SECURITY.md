@@ -6,6 +6,26 @@ on-chain relation and its parameters are audited separately in the
 lives here and, in the case of the published packages, runs on other people's
 servers.
 
+## 2026-08-05 — the buyer CLI's --max could be skipped by an unreadable price (fixed)
+
+**Severity: medium. `cli/bin/stellar-agent-pay.mjs`. Fixed the same day.**
+
+`--max` is the agent's spend limit — the whole point of letting a script pay
+autonomously. Both the cap check and the confirmation prompt guarded on
+`req.usd != null`, and the price could be non-`null` yet unusable in two ways: a
+402 that advertises no amount leaves `usd` **null**, and one that advertises a
+non-numeric amount leaves it **NaN**. `NaN > max` is `false`, so a NaN price
+slid past the cap exactly as a null one slid past the `!= null` guard. Because
+the actual payment amount is set by the x402 scheme reading the 402 directly —
+not by the CLI's parsed copy — a server whose price this CLI could not read but
+the scheme could would collect payment with the agent's `--max` never applied.
+
+**The fix.** The CLI now refuses any 402 whose price is not a finite number,
+before the cap or the prompt: if `--max` cannot be honored and the amount cannot
+be shown, paying blind is the wrong default. Regression tests pin both bypass
+values — a missing amount parses to `null`, a non-numeric one to `NaN`, and
+`Number.isFinite` rejects both.
+
 ## 2026-08-05 — server robustness: two lower-severity issues (fixed)
 
 Not exploitable for theft, but the kind of rough edge an auditor notices, so
