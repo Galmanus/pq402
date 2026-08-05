@@ -131,7 +131,25 @@ about that party's honesty. Here it is a Soroban contract, so the verdict is a
 fact about the ledger — the nullifier burns in consensus storage and the round
 comes from the ledger sequence. Nobody has to trust this server, because this
 server is not the one deciding. The 400M-instruction cap, not the cryptography,
-is what holds our parameters below theirs.
+is what holds our parameters below theirs — and that is measured, not asserted:
+
+| verification, on testnet | instructions | of the 400M cap |
+|---|---:|---:|
+| unlinkable act, 12 queries at blowup 2⁷ | 243,213,882 | 61% |
+| identifying spend, 40 queries at blowup 2 | 265,797,092 | 66% |
+
+Read from the submitted envelopes' declared Soroban resources. Both succeeded.
+
+The second row is a result we did not expect. It asks more than three times the
+queries, costs **more**, and is the weaker of the two by a wide margin. Blowup
+buys soundness at a discount that queries do not: raising the rate lengthens the
+codeword the prover commits to, while the verifier only pays for openings it
+actually checks. On a chain that meters the verifier and not the prover, few
+queries over a high blowup strictly dominates — and the legacy configuration had
+it backwards. For scale, SDF's privacy-pool prototype spends about 40M
+instructions per BLS12-381 pairing, so a hash-based verifier costs on the order
+of twice a pairing-based one. That factor of two is the entire price of dropping
+the trusted setup and the exposure to Shor.
 
 There is a structural reason the gap sat open. CAP-0075 (Final, Protocol 25)
 gives Soroban a native Poseidon2 permutation — but its `field` argument admits

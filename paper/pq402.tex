@@ -306,10 +306,37 @@ proving, range across those runs & 6--11 ms \\
 proof size, identifying mode & 79{,}186 B \\
 proof size, unlinkable mode (acting half) & 113{,}360 B \\
 proof size, unlinkable mode (membership half) & 82{,}765 B \\
+on-chain verification, unlinkable act (12 queries, blowup $2^7$) & 243{,}213{,}882 instr. \\
+on-chain verification, identifying spend (40 queries, blowup $2$) & 265{,}797{,}092 instr. \\
+Soroban per-transaction ceiling & 400{,}000{,}000 instr. \\
 settlement fee, paid by the facilitator & 23{,}073 stroops \\
 \bottomrule
 \end{tabular}
 \end{center}
+
+The instruction rows are read from the submitted envelopes' declared Soroban
+resources, which the CLI sets from simulation; the transactions are the ones
+linked in the repository and both succeeded.
+
+Two things fall out of them. The first is that the ceiling is real and close:
+one verification consumes 61\% of the per-transaction budget, so the security
+parameters are not a matter of taste. At roughly 20M instructions per query,
+the cap alone admits something under twenty of them, and that is before the
+membership half and the storage writes.
+
+The second is a result we did not expect and would not have found without
+measuring. The identifying gate asks 40 queries at blowup 2 and costs
+\emph{more} --- 265.8M against 243.2M --- while being the weaker of the two by a
+wide margin. Blowup buys soundness at a discount that queries do not: raising
+the rate lengthens the committed codeword, which the prover pays for, while the
+verifier's cost tracks the number of openings it has to check. On a chain that
+meters the verifier and not the prover, few queries over a high blowup strictly
+dominates. The legacy configuration had it backwards.
+
+For scale, SDF's own privacy-pool prototype spends roughly 40M instructions per
+BLS12-381 pairing. A Groth16 verification needs several, so a hash-based
+verifier here costs on the order of twice a pairing-based one. That factor of
+two is the whole price of dropping the trusted setup and the exposure to Shor.
 
 The fee row is the one worth pausing on: the account charged the network fee is
 the facilitator's, not the agent's. That is fee sponsorship working, and it is
