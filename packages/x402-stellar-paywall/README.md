@@ -64,6 +64,51 @@ Requires the `stellar` CLI on PATH, and a deployed verifier. The one in the
 example is riverrun's post-quantum credential relation; any contract with the
 same `spend(proof, publics) -> bool` shape works.
 
+## The gate that does not learn who
+
+`credential: { mode: "crowd" }` swaps the identifying credential for an
+unlinkable one. Instead of the leaf, the relation publishes
+
+```
+C = compress(leaf ‖ blinder)
+```
+
+with a fresh blinder each use, and never the leaf. Two halves compose on that
+shared `C`: one proves a valid credential acted under it and burns a nullifier,
+the other proves `C` sits under the issuer's published root via a private path.
+
+What the server learns: **someone in the issuer's set paid**. Not which member.
+And two payments by one credential share no public value at all, because the
+blinder is fresh — so they cannot be linked to each other either.
+
+```js
+credential: {
+  mode: "crowd",
+  actContract: "CAEZ25KZ…",        // verifies the acting half and burns
+  membershipContract: "CDO2NDPR…",  // verifies membership under a root
+  root: process.env.ISSUER_ROOT,
+  source: "my-key",
+}
+```
+
+The challenge is not the server's to choose. `act` derives the expected round
+from the ledger sequence and refuses anything else, so freshness comes from
+consensus rather than from whoever is asking. One credential therefore acts
+once per epoch, which is about an hour at Stellar's close time.
+
+Membership is checked **before** the acting half, because membership is a free
+read-only call and acting costs a transaction: there is no reason to burn a
+nullifier for a caller who was never in the set. And the root is compared
+against the issuer's, because a membership proof is only ever a statement about
+the tree the prover chose — without that check anyone can build a tree
+containing their own leaf and prove membership in it.
+
+Proven end to end on testnet in `examples/crowd-app`: burn
+`d87d75d6aa291b42e37bfdc4d56f8b868bae270d53239bb8dd656aec5f237748`, settlement
+`7b47f7fbd23ad6ed44b667903c66adb634fd721cb49e0f6d0c8606a3172940ec`, and the
+response the server could honestly give: *paid for by a member of the set, and
+the set is all this server knows*.
+
 ## Why this exists
 
 Getting an x402 client and a Stellar facilitator to agree took four failing

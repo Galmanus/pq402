@@ -267,6 +267,30 @@ configuration — payment settled by a facilitator, credential judged by a
 contract — in about twenty lines. It returned
 `{"premium":"paid for, and proved eligible, without saying who","settled_by":"dcfed383…"}`.
 
+### The seller does not learn who bought
+
+One word further — `mode: "crowd"` — and the credential stops identifying the
+buyer at all. The relation publishes `C = compress(leaf ‖ blinder)` with a
+fresh blinder each use, never the leaf. Two halves compose on that shared `C`:
+one proves a member acted and burns a nullifier, the other proves `C` sits
+under the issuer's root via a private path.
+
+The server learns that **someone in the set paid**. Not which member. And two
+payments by one credential share no public value, so they cannot be linked to
+each other either. The challenge is not the server's to choose: `act` derives
+the round from the ledger sequence and refuses anything else.
+
+[`examples/crowd-app`](examples/crowd-app), on testnet:
+
+| | tx |
+|---|---|
+| credential burned by consensus | [`d87d75d6…`](https://stellar.expert/explorer/testnet/tx/d87d75d6aa291b42e37bfdc4d56f8b868bae270d53239bb8dd656aec5f237748) |
+| USDC settled | [`7b47f7fb…`](https://stellar.expert/explorer/testnet/tx/7b47f7fbd23ad6ed44b667903c66adb634fd721cb49e0f6d0c8606a3172940ec) |
+
+```json
+{"premium": "paid for by a member of the set, and the set is all this server knows"}
+```
+
 ## Agent treasury: a spending rule the agent cannot talk its way out of
 
 `--max` on the CLI is a promise the agent makes to itself; a compromised or

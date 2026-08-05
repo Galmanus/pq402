@@ -1,6 +1,6 @@
 {
   "name": "x402-stellar-paywall",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "One-line x402 paywall middleware for Stellar, with a facilitator preset and an optional anonymous-credential gate judged on-chain. Express, Hono, and a framework-free core.",
   "type": "module",
   "main": "src/index.mjs",
@@ -8,7 +8,8 @@
     ".": "./src/index.mjs",
     "./express": "./src/express.mjs",
     "./hono": "./src/hono.mjs",
-    "./credential": "./src/credential.mjs"
+    "./credential": "./src/credential.mjs",
+    "./crowd": "./src/crowd.mjs"
   },
   "keywords": [
     "x402",

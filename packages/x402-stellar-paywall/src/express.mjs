@@ -23,10 +23,18 @@
 
 import { paywall } from "./index.mjs";
 import { credentialGate } from "./credential.mjs";
+import { crowdGate } from "./crowd.mjs";
 
 export async function expressPaywall(options) {
   const gate = await paywall(options);
-  const cred = options.credential ? credentialGate(options.credential) : null;
+  // `credential.mode: "crowd"` swaps the identifying gate for the unlinkable
+  // one: the server learns that someone in the issuer's set paid, never which
+  // member, and two payments by one credential share no public value.
+  const cred = options.credential
+    ? options.credential.mode === "crowd"
+      ? crowdGate(options.credential)
+      : credentialGate(options.credential)
+    : null;
 
   const middleware = async function x402Middleware(req, res, next) {
     const requestUrl =
@@ -37,10 +45,16 @@ export async function expressPaywall(options) {
     // than refusing them, and it is the server's job not to arrange that.
     const passToken = req.get("x-pq-pass");
     if (cred && !cred.hasPass(passToken)) {
-      res.set({ ...gate.challengeHeader(requestUrl), ...cred.challengeHeaders() });
+      // The crowd gate's requirement is async: it reads the round from the
+      // ledger, because the round is not the server's to choose.
+      const requirement = await cred.requirement();
+      res.set({
+        ...gate.challengeHeader(requestUrl),
+        ...(cred.challengeHeaders ? cred.challengeHeaders() : {}),
+      });
       return res.status(402).json({
         ...gate.paymentRequired(requestUrl),
-        pq_required: { ...cred.requirement(), unlock: "POST /pq/unlock" },
+        pq_required: { unlock: "POST /pq/unlock", ...requirement },
       });
     }
 
@@ -76,12 +90,20 @@ export async function expressPaywall(options) {
    */
   middleware.unlock = async function x402Unlock(req, res) {
     if (!cred) return res.status(404).json({ error: "no credential gate configured" });
-    const { proof_b64, publics_hex, round } = req.body ?? {};
-    const verdict = await cred.unlock(proof_b64, publics_hex, { round });
+    const body = req.body ?? {};
+    const verdict =
+      cred.kind === "crowd"
+        ? await cred.unlock(body)
+        : await cred.unlock(body.proof_b64, body.publics_hex, { round: body.round });
     if (!verdict.ok) return res.status(verdict.status).json({ error: verdict.error });
     return res.json({
       pass: verdict.pass,
-      verified_by: { contract: cred.contract, network: cred.network, mode: verdict.mode },
+      ...(verdict.commitment && { commitment: verdict.commitment }),
+      verified_by: {
+        contract: cred.contract,
+        network: cred.network,
+        ...(verdict.mode ? { mode: verdict.mode } : { mode: cred.kind ?? "binding" }),
+      },
       ...(verdict.tx && {
         burn_tx: verdict.tx,
         explorer: `https://stellar.expert/explorer/${cred.network}/tx/${verdict.tx}`,

@@ -1,0 +1,9 @@
+{
+  "name": "crowd-app",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "express": "^5.0.0",
+    "x402-stellar-paywall": "file:../../packages/x402-stellar-paywall"
+  }
+}

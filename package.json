@@ -1,7 +1,7 @@
 {
   "name": "pq402",
   "version": "0.1.0",
-  "description": "An x402 paid API on Stellar whose unlock also requires a post-quantum credential proof, with a CLI agent that completes the loop.",
+  "description": "Demo repository, not a package. The reusable piece is x402-stellar-paywall.",
   "type": "module",
   "license": "MIT",
   "scripts": {
@@ -12,5 +12,6 @@
   },
   "dependencies": {
     "@stellar/stellar-sdk": "^13.0.0"
-  }
+  },
+  "private": true
 }
