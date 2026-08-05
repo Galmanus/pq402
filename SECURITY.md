@@ -6,6 +6,36 @@ on-chain relation and its parameters are audited separately in the
 lives here and, in the case of the published packages, runs on other people's
 servers.
 
+## 2026-08-05 — the treasury authenticated nobody (fixed)
+
+**Severity: high. `contracts/agent-treasury`. Fixed the same day.**
+
+`pay` was the treasury's only reachable entry point, and it verified the token
+allow-list and the daily cap but never checked *who* was calling. The token
+`transfer` moves from the treasury's own address, and a Soroban contract
+authorizes its own outgoing calls automatically, so no external signature was
+required at all. Anyone on the network could call
+`pay(usdc, their_own_address, cap)` once per rolling window and take the whole
+daily cap. The cap did not protect the funds; it rate-limited the theft.
+
+The `Signer` key was set at construction and read nowhere afterward. The
+`CustomAccountInterface` the module described was never implemented — `__check_auth`
+did not exist, and `check_policy` was a free function reached only by tests
+calling it directly. So the suite was green (it exercised `check_policy`) while
+the deployed door (`pay`) was open and the custom-account door was absent.
+
+**The fix.** `pay` now reads the stored agent and calls `agent.require_auth()`
+before anything moves. The auth framework binds that authorization to the exact
+`(contract, "pay", token, to, amount)` tuple, so a captured signature cannot be
+replayed with a different recipient or amount. The constructor takes an
+`agent: Address` in place of the unused ed25519 key; the dead
+`CustomAccountInterface` import and `check_policy` are gone. The test suite was
+rewritten to drive `pay` through a real registered Stellar Asset Contract rather
+than a free function — twelve tests, including one that asserts the recorded
+authorizer is the agent bound to the exact call, and one that confirms `pay`
+panics when the agent has not authorized. `demo/policy.sh` gains a fourth case:
+a payment inside policy but signed by the wrong identity, refused in consensus.
+
 ## 2026-08-05 — the server enforced the client's price, not its own (fixed)
 
 **Severity: high. Present in `server.mjs`, the npm package, and the Python twin.

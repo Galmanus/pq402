@@ -28,11 +28,14 @@ if [ -z "${TREASURY:-}" ]; then
     (cd "$HERE" && cargo build --target wasm32v1-none --release &&
       stellar contract optimize --wasm target/wasm32v1-none/release/agent_treasury.wasm)
   }
-  SIGNER="${POLICY_SIGNER:-$(head -c 32 /dev/urandom | xxd -p -c 64)}"
+  # The agent is the only principal whose signature `pay` will accept. Here it
+  # is the identity that submits the payments below; anyone else is refused in
+  # consensus, which case 4 demonstrates.
+  AGENT="${AGENT:-$(stellar keys address "$SRC")}"
   T="$(stellar contract deploy \
         --wasm "$HERE/target/wasm32v1-none/release/agent_treasury.optimized.wasm" \
         --source "$SRC" --network "$NET" \
-        -- --signer "$SIGNER" --allowed "[\"$USDC\"]" --daily_cap "$CAP" 2>&1 | tail -1)"
+        -- --agent "$AGENT" --allowed "[\"$USDC\"]" --daily_cap "$CAP" 2>&1 | tail -1)"
   echo "treasury $T"
   say "funding it with 0.5 USDC"
   stellar contract invoke --send=yes --id "$USDC" --source "$FUNDER" --network "$NET" \
@@ -70,4 +73,25 @@ case "$OUT" in
   *) echo "the allow-list did not hold:"; echo "$OUT" | tail -3; exit 1 ;;
 esac
 
-say "remaining after both refusals: $(budget) — a refusal costs no budget"
+say "4. UNAUTHORIZED — a payment inside policy, but signed by the wrong identity"
+# Inside the allow-list and under the cap, so only the missing agent signature
+# stands between this call and the money. STRANGER submits and authorizes with
+# its own key; the contract requires the AGENT's, which the stranger cannot
+# produce. This is the finding SECURITY.md records, closed: without it, any
+# identity could have drained the cap here.
+STRANGER="${STRANGER:-$FUNDER}"
+if [ "$(stellar keys address "$STRANGER")" = "$(stellar keys address "$SRC")" ]; then
+  echo "skipped: set STRANGER to an identity other than SOURCE to see this case"
+else
+  OUT="$(stellar contract invoke --send=yes --id "$T" --source "$STRANGER" --network "$NET" \
+          -- pay --token "$USDC" --to "$R" --amount 100000 2>&1 || true)"
+  case "$OUT" in
+    *"Error(Auth"*|*"InvalidAction"*|*"authorization"*|*"require_auth"*|*"Unauthorized"*)
+      echo "REFUSED in consensus — the stranger's signature is not the agent's" ;;
+    *"Error(Contract"*)
+      echo "refused, but by policy not by auth — unexpected:"; echo "$OUT" | tail -3; exit 1 ;;
+    *) echo "the agent gate did not hold:"; echo "$OUT" | tail -3; exit 1 ;;
+  esac
+fi
+
+say "remaining after the refusals: $(budget) — a refusal costs no budget"
