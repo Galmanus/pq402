@@ -95,6 +95,15 @@ async function pay() {
   const r402 = await fetch(`${PQ402}/premium`);
   const actionHex = r402.headers.get("x-pq-action");
   const roundHex = r402.headers.get("x-pq-challenge");
+  // Without these headers there is nothing to prove against. Say so, rather
+  // than letting `roundHex.slice` throw a TypeError that names nothing — the
+  // usual cause is the pq402 server being down or on another port.
+  if (!actionHex || !roundHex) {
+    throw new Error(
+      `${PQ402}/premium answered ${r402.status} without the x-pq-action / ` +
+        `x-pq-challenge headers — is the pq402 server running at ${PQ402}?`
+    );
+  }
   at(`402 Payment Required + desafio fresco (${roundHex.slice(0, 12)}…)`);
 
   const tp = Date.now();
