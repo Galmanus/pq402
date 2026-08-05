@@ -360,6 +360,55 @@ is a weather API with no credential logic in it at all, which declares the
 package as an ordinary dependency, gates one route with one line, and was paid
 by an agent on testnet.
 
+\section{Related work}
+
+None of the cryptography here is new, and it would be dishonest to present it
+as such. Post-quantum anonymous credentials are a studied object with a
+literature, and this system is an engineering result standing on it. The
+comparison worth making is not against nothing; it is against the published
+numbers.
+
+Policharla, Westerbaan, Faz-Hern\'andez and Wood\footnote{Cryptology ePrint
+2023/414, \texttt{ia.cr/2023/414}.} build post-quantum Privacy Pass from
+post-quantum anonymous credentials, proving possession of a zkDilithium
+signature --- a STARK-friendly variant of Dilithium2 --- inside a STARK. Their
+tokens run 85--175\,KB at a 115-bit proof security level, generate in
+0.3--5\,s, and verify in 20--30\,ms. That is the closest published relative of
+what runs here, and it is the reference a reader should hold this against.
+
+Chen et al.\footnote{ePrint 2024/650, PQCrypto 2023.} give the first
+post-quantum Direct Anonymous Attestation from symmetric primitives alone, a
+SPHINCS+-derived credential shown through an MPC-in-the-Head proof. Feneuil and
+Rivain's CAPSS\footnote{ePrint 2025/061, with the SmallWood proof system at
+ePrint 2025/1085.} builds signatures from arithmetization-oriented permutations
+--- Rescue-Prime, Poseidon, Griffin, Anemoi --- and reports anonymous-credential
+presentation proofs under 150\,KB at 128 bits. That is the same primitive family
+this work uses, and the better-optimised end of it. On the lattice side, Argo et
+al.\footnote{ePrint 2024/131, ACM CCS 2024.} reach credentials of 80\,KB, since
+improved to 54\,KB.
+
+Set against those, our proofs are 79\,KB in identifying mode and 196\,KB across
+both halves of the unlinkable one, at roughly 96 conjectured bits. That is
+larger and weaker than CAPSS, and it is worth saying plainly. It is also
+precisely where the theory said it would land: Jeudy et al.\footnote{ePrint
+2023/560.} note in passing that anonymous credentials from STARKs are possible
+but that the cost ``appears to be in the hundreds of kilobytes range.'' We
+landed at 196\,KB, which is the footnote coming true rather than a surprise.
+
+What is new is not the credential. It is where the verifier runs. Every scheme
+above is verified in software, by the party being shown the credential --- a
+Privacy Pass origin, a TPM verifier, a relying party. Verification is a claim
+about that party's honesty. Here the verifier is a Soroban contract, so the
+verdict is a fact about the ledger: the nullifier burns in consensus storage,
+and the round the proof answers is derived from the ledger sequence rather than
+chosen by whoever is asking. Nobody has to trust the server, because the server
+is not the one deciding.
+
+That relocation is also what explains the gap in the numbers. The 400M
+instruction cap, not the cryptography, is what holds the security parameters
+down; a software verifier with 20--30\,ms to spend has no such ceiling. Closing
+that gap is the obvious next work, and CAPSS is where we would start.
+
 \section{What is claimed, and what is not}
 
 We separate these deliberately, because the value of the measurements above
@@ -425,6 +474,10 @@ out of the exponent.
 
 The narrowed claim is therefore: no prior STARK verified directly by a Soroban
 contract, and no prior \emph{post-quantum} credential gating an x402 payment.
+Neither half claims the credential construction is new --- the Related work
+section above places it against the literature it comes from, where it is
+neither the smallest nor the strongest instance. The claim is about a verifier
+that runs in consensus rather than in software.
 Everything else verifying zero-knowledge proofs on Soroban today is
 pairing-based --- MicoPay and StellarVeil over BN254, the SDF privacy-pool
 prototype over BLS12-381, and RISC~Zero reaching Stellar only through

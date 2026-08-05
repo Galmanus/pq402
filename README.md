@@ -115,6 +115,24 @@ prototype over BLS12-381, and RISC Zero reaching Stellar only through
 Nethermind's `groth16_verifier.wasm`, a wrapper that reintroduces pairings and a
 trusted setup at the last step so that a STARK never touches the chain.
 
+**None of the cryptography is new, and the paper says so with numbers.**
+Post-quantum anonymous credentials have a literature. Policharla, Westerbaan,
+Faz-Hernández and Wood build post-quantum Privacy Pass from exactly this shape
+— a credential proved inside a STARK — at 85–175 KB and 115 bits
+([ePrint 2023/414](https://eprint.iacr.org/2023/414)). CAPSS reports
+presentation proofs under 150 KB at 128 bits from the same permutation family
+we use ([ePrint 2025/061](https://eprint.iacr.org/2025/061)). Ours are 79 KB
+identifying, 196 KB unlinkable, at ~96 bits: larger and weaker, and worth
+saying plainly.
+
+What is new is **where the verifier runs**. Every scheme above is verified in
+software by the party being shown the credential, so verification is a claim
+about that party's honesty. Here it is a Soroban contract, so the verdict is a
+fact about the ledger — the nullifier burns in consensus storage and the round
+comes from the ledger sequence. Nobody has to trust this server, because this
+server is not the one deciding. The 400M-instruction cap, not the cryptography,
+is what holds our parameters below theirs.
+
 There is a structural reason the gap sat open. CAP-0075 (Final, Protocol 25)
 gives Soroban a native Poseidon2 permutation — but its `field` argument admits
 only BLS12-381 Fr and BN254 Fr. Circle STARKs are cheap because they live over a
