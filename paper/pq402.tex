@@ -308,7 +308,10 @@ proof size, unlinkable mode (acting half) & 113{,}360 B \\
 proof size, unlinkable mode (membership half) & 82{,}765 B \\
 on-chain verification, unlinkable act (12 queries, blowup $2^7$) & 243{,}213{,}882 instr. \\
 on-chain verification, identifying spend (40 queries, blowup $2$) & 265{,}797{,}092 instr. \\
-Soroban per-transaction ceiling & 400{,}000{,}000 instr. \\
+Soroban per-transaction instruction ceiling & 400{,}000{,}000 instr. \\
+transaction envelope, unlinkable act & 114{,}084 B \\
+transaction envelope, identifying spend & 77{,}508 B \\
+Soroban per-transaction size ceiling & 132{,}096 B \\
 settlement fee, paid by the facilitator & 23{,}073 stroops \\
 \bottomrule
 \end{tabular}
@@ -318,20 +321,56 @@ The instruction rows are read from the submitted envelopes' declared Soroban
 resources, which the CLI sets from simulation; the transactions are the ones
 linked in the repository and both succeeded.
 
-Two things fall out of them. The first is that the ceiling is real and close:
-one verification consumes 61\% of the per-transaction budget, so the security
-parameters are not a matter of taste. At roughly 20M instructions per query,
-the cap alone admits something under twenty of them, and that is before the
-membership half and the storage writes.
+Two things fall out of them. The first is which ceiling actually binds, and it
+is not the one we expected. Instructions sit at 61\% of budget, which sounds
+like room; the envelope sits at \textbf{86\%} of the 132{,}096-byte transaction
+size cap, which is not room at all. The proof has to travel to the chain before
+it can be checked there, and on Soroban the trip is scarcer than the check.
+Every reference to a ``400M instruction cap'' as the limiting resource,
+including two we made earlier in this work, was measuring the wrong wall.
 
-The second is a result we did not expect and would not have found without
-measuring. The identifying gate asks 40 queries at blowup 2 and costs
-\emph{more} --- 265.8M against 243.2M --- while being the weaker of the two by a
-wide margin. Blowup buys soundness at a discount that queries do not: raising
-the rate lengthens the committed codeword, which the prover pays for, while the
-verifier's cost tracks the number of openings it has to check. On a chain that
-meters the verifier and not the prover, few queries over a high blowup strictly
-dominates. The legacy configuration had it backwards.
+The second is worth pausing on. The identifying gate asks 40 queries at blowup 2
+and costs \emph{more} --- 265.8M against 243.2M --- while being the weaker of
+the two by a wide margin. Blowup buys soundness at a discount that queries do
+not: raising the rate lengthens the committed codeword, which the prover pays
+for, while the verifier's cost tracks the number of openings it has to check. On
+a chain that meters the verifier and not the prover, few queries over a high
+blowup wins on both cost and soundness.
+
+It does not win on everything, and the obvious next move is a trap. Pushing the
+blowup higher again would buy more soundness for a few percent more
+instructions, and would quietly destroy the hiding property. Counting the FRI
+phase as a linear-algebra problem --- what the verifier observes against what
+the blinding can cover --- gives observations $Q \cdot \ell$ with
+$\ell = \log_2(2N \cdot 2^\beta)$, against $3N$ dimensions of blinding: the
+trace blinder, collapsed to $N$ by the $\alpha$-reduction, plus the $2N$ of the
+randomisation polynomial. So soundness improves as $Q\beta$ while the
+zero-knowledge margin degrades as $Q(\log_2 2N + \beta)$, and zero-knowledge
+loses the race because it pays the committed height on top of the blowup. A
+negative margin is conclusive in the bad direction: fewer blinding dimensions
+than revealed scalars means some linear functional of the witness survives into
+the transcript, and no simulator of this shape exists.
+
+This is why the contracts \emph{pin} the configuration rather than enforce a
+floor. A floor was the first fix, and it was the wrong one: a caller passing a
+larger blowup would have been accepted as stronger while silently destroying
+hiding. There is no scalar to be above --- there is one configuration checked on
+all four axes at once, and anything else is a different configuration that has
+not been. The lever that helps both directions is trace height, which adds three
+blinding dimensions per row against $Q$ observations per doubling.
+
+And that is where the four constraints close on each other, which is the
+result this section exists to report. The deployed configuration --- 128 rows,
+12 queries, blowup $2^7$ --- sits at 92 conjectured bits of soundness, a FRI
+zero-knowledge margin of $+204$, 61\% of the instruction budget, and 86\% of the
+envelope. Each available move breaks one of the other three. Raising the blowup
+buys soundness and drives the margin toward zero, which is conclusive against
+hiding. Raising the queries buys soundness and adds a Merkle path per query to
+an envelope already at 86\%. Raising the trace height is the only move that
+helps soundness and hiding together, and it is precisely the move that doubles
+the proof and overruns the size cap first. The configuration is not a
+preference. It is the last point that satisfies all four at once, and the reason
+it looks arbitrary is that three of the four walls are invisible until measured.
 
 For scale, SDF's own privacy-pool prototype spends roughly 40M instructions per
 BLS12-381 pairing. A Groth16 verification needs several, so a hash-based
@@ -431,10 +470,13 @@ and the round the proof answers is derived from the ledger sequence rather than
 chosen by whoever is asking. Nobody has to trust the server, because the server
 is not the one deciding.
 
-That relocation is also what explains the gap in the numbers. The 400M
-instruction cap, not the cryptography, is what holds the security parameters
-down; a software verifier with 20--30\,ms to spend has no such ceiling. Closing
-that gap is the obvious next work, and CAPSS is where we would start.
+That relocation is also what explains the gap in the numbers. Soroban's
+per-transaction limits, not the cryptography, are what hold the security
+parameters down --- and the binding one is the 132{,}096-byte envelope rather
+than the instruction budget, as the measurements below show. A software verifier
+with 20--30\,ms to spend has no such ceiling and no need to ship the proof
+anywhere. Closing that gap means smaller proofs rather than a faster verifier,
+which is exactly what CAPSS and SmallWood are for, and is where we would start.
 
 \section{What is claimed, and what is not}
 

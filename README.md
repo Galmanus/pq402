@@ -130,23 +130,59 @@ software by the party being shown the credential, so verification is a claim
 about that party's honesty. Here it is a Soroban contract, so the verdict is a
 fact about the ledger — the nullifier burns in consensus storage and the round
 comes from the ledger sequence. Nobody has to trust this server, because this
-server is not the one deciding. The 400M-instruction cap, not the cryptography,
-is what holds our parameters below theirs — and that is measured, not asserted:
+server is not the one deciding. Soroban's per-transaction limits, not the
+cryptography, are what hold our parameters below theirs — and that is measured,
+not asserted:
 
-| verification, on testnet | instructions | of the 400M cap |
-|---|---:|---:|
-| unlinkable act, 12 queries at blowup 2⁷ | 243,213,882 | 61% |
-| identifying spend, 40 queries at blowup 2 | 265,797,092 | 66% |
+| on testnet | instructions | of 400M | envelope | of 132,096 B |
+|---|---:|---:|---:|---:|
+| unlinkable act, 12 queries at blowup 2⁷ | 243,213,882 | 61% | 114,084 B | **86%** |
+| identifying spend, 40 queries at blowup 2 | 265,797,092 | 66% | 77,508 B | 59% |
 
-Read from the submitted envelopes' declared Soroban resources. Both succeeded.
+Read from the submitted envelopes. Both transactions succeeded.
 
-The second row is a result we did not expect. It asks more than three times the
-queries, costs **more**, and is the weaker of the two by a wide margin. Blowup
-buys soundness at a discount that queries do not: raising the rate lengthens the
+**The binding ceiling is not the one we expected.** Instructions at 61% sounds
+like room. The envelope at 86% is not room at all. A proof has to travel to the
+chain before it can be checked there, and on Soroban the trip is scarcer than
+the check — so proof *size*, not verifier speed, is what caps the security
+parameters. Two earlier passages in this repo blamed the 400M instruction cap.
+They were measuring the wrong wall.
+
+The second row is worth pausing on. It asks more than three times the queries,
+costs **more**, and is the weaker of the two by a wide margin. Blowup buys
+soundness at a discount that queries do not: raising the rate lengthens the
 codeword the prover commits to, while the verifier only pays for openings it
 actually checks. On a chain that meters the verifier and not the prover, few
-queries over a high blowup strictly dominates — and the legacy configuration had
-it backwards. For scale, SDF's privacy-pool prototype spends about 40M
+queries over a high blowup wins on both cost and soundness.
+
+It does **not** win on everything, and the obvious next move is a trap. Pushing
+the blowup higher still would buy more soundness for a few percent more
+instructions — and would quietly destroy the hiding property. The zero-knowledge
+margin of the FRI phase degrades as `Q · (log₂(2N) + log_blowup)` while soundness
+only improves as `Q · log_blowup`, so the same knob moves them in opposite
+directions and zero-knowledge loses the race, because it pays the committed
+height on top of the blowup. That is why the contracts **pin** the configuration
+rather than enforce a floor: a caller passing a larger blowup would look
+stronger and be weaker. The counting is in
+[`fri_zk_budget.rs`](https://github.com/Galmanus/mirror-pool), the reasoning in
+`crowd-probe/src/lib.rs`.
+
+**And the four constraints close on each other.** The deployed configuration —
+128 rows, 12 queries, blowup 2⁷ — sits at 92 conjectured bits, a FRI
+zero-knowledge margin of +204, 61% of the instruction budget, and 86% of the
+envelope. Every available move breaks one of the other three:
+
+| move | soundness | hiding margin | envelope |
+|---|---|---|---|
+| raise blowup | up | **toward zero — conclusive against hiding** | flat |
+| raise queries | up | down | **+1 Merkle path each, from 86%** |
+| raise trace height | up | up | **doubles the proof, overruns first** |
+
+The configuration is not a preference. It is the last point that satisfies all
+four at once, and it looks arbitrary only because three of the four walls are
+invisible until you measure them.
+
+For scale, SDF's privacy-pool prototype spends about 40M
 instructions per BLS12-381 pairing, so a hash-based verifier costs on the order
 of twice a pairing-based one. That factor of two is the entire price of dropping
 the trusted setup and the exposure to Shor.
