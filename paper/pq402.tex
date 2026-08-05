@@ -409,13 +409,39 @@ a pre-quantum chain, and the missing half is Stellar's to supply, not ours.
 
 \subsection{On priority}
 
-We know of no prior x402 payment gated by an unlinkable credential, on Stellar
-or elsewhere, and no prior STARK verified directly by a Soroban contract:
-everything verifying zero-knowledge proofs on Soroban today is pairing-based,
-and RISC~Zero reaches Stellar only after a Groth16 wrapper that reintroduces
-pairings and a trusted setup at the last step. That is a statement about what
-public search surfaced on 2 August 2026, not a proof of absence. If it is
-wrong, the correction belongs in the repository and will be put there.
+An earlier draft claimed no prior x402 payment gated by an anonymous
+credential. That was wrong. MicoPay\footnote{\texttt{github.com/Micopay/micopay-protocol}}
+does the same shape on Stellar, independently and deployed on testnet: an agent
+buys a credential over x402, spends it with a proof of membership, and a
+Soroban contract burns the nullifier. We record the error here rather than
+quietly narrowing the claim elsewhere.
+
+What separates the two is the proof system. MicoPay verifies through the BN254
+host functions (\texttt{g1\_msm}, \texttt{pairing\_check}); its soundness rests
+on discrete log over a pairing curve, and it carries a trusted setup. Shor's
+algorithm breaks that assumption. The construction here rests on a hash
+function, carries no setup, and concedes only the factor of two Grover takes
+out of the exponent.
+
+The narrowed claim is therefore: no prior STARK verified directly by a Soroban
+contract, and no prior \emph{post-quantum} credential gating an x402 payment.
+Everything else verifying zero-knowledge proofs on Soroban today is
+pairing-based --- MicoPay and StellarVeil over BN254, the SDF privacy-pool
+prototype over BLS12-381, and RISC~Zero reaching Stellar only through
+Nethermind's \texttt{groth16\_verifier.wasm}, a wrapper that reintroduces
+pairings and a trusted setup at the last step so that no STARK ever touches the
+chain.
+
+The gap has a structural cause. CAP-0075 (Final, Protocol~25) gives Soroban a
+native Poseidon2 permutation, but its \texttt{field} argument admits only
+the scalar fields of BLS12-381 and BN254. Circle STARKs are cheap
+precisely because they live over a 31-bit field, and no host function covers
+one. A Mersenne-31 verifier must be written out in contract code, beneath the
+400M-instruction cap, or it does not exist.
+
+That is a statement about what public search surfaced on 5 August 2026, not a
+proof of absence. If the remainder is wrong too, the correction belongs in the
+repository and will be put there.
 
 \section{Reproducing}
 

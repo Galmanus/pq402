@@ -88,13 +88,43 @@ repo publishes:
 credential: { mode: "crowd", actContract, membershipContract, root, source }
 ```
 
-**On the claim.** We know of no prior x402 payment gated by an unlinkable
-credential, on Stellar or anywhere, and no prior STARK verified directly by a
-Soroban contract — everything verifying zero-knowledge proofs on Soroban today
-is pairing-based, and RISC Zero reaches Stellar only after a Groth16 wrapper
-that reintroduces pairings and a trusted setup at the last step. That is a
-statement about what public search surfaced on 2 August 2026, not a proof of
-absence. If it is wrong, the correction belongs here and we will put it here.
+**On the claim, corrected.** An earlier draft of this section said we knew of no
+prior x402 payment gated by an anonymous credential. That was wrong, and the
+correction belongs where the claim was.
+
+[MicoPay](https://github.com/Micopay/micopay-protocol) does the same shape on
+Stellar: an agent buys a credential over x402, spends it with a proof that
+reveals only membership, and a Soroban contract burns the nullifier. It is
+deployed on testnet and it got there independently of us. Anyone judging this
+work should read theirs.
+
+What still separates the two is the *proof system*, and it is not a detail:
+
+| | MicoPay | here |
+|---|---|---|
+| verifier | BN254 `g1_msm` + `pairing_check` host functions | Circle STARK over Mersenne-31, verified in contract code |
+| assumption | discrete log on a pairing curve | a hash function |
+| trusted setup | yes (Groth16/UltraHonk lineage) | none |
+| a large quantum computer | **breaks it** — Shor solves discrete log | does not apply — Grover halves the exponent, nothing more |
+
+So the narrowed claim, and the one we will defend: **no prior STARK verified
+directly by a Soroban contract, and no prior post-quantum credential gating an
+x402 payment.** Everything else verifying zero-knowledge proofs on Soroban today
+is pairing-based — MicoPay and StellarVeil over BN254, SDF's privacy-pool
+prototype over BLS12-381, and RISC Zero reaching Stellar only through
+Nethermind's `groth16_verifier.wasm`, a wrapper that reintroduces pairings and a
+trusted setup at the last step so that a STARK never touches the chain.
+
+There is a structural reason the gap sat open. CAP-0075 (Final, Protocol 25)
+gives Soroban a native Poseidon2 permutation — but its `field` argument admits
+only BLS12-381 Fr and BN254 Fr. Circle STARKs are cheap because they live over a
+31-bit field, and no host function covers it. A verifier over Mersenne-31 has to
+be written out in contract code, under the 400M-instruction cap, or not exist.
+This repo is what it costs to write it out.
+
+That is a statement about what public search surfaced on 5 August 2026, not a
+proof of absence. If the rest of it is wrong too, the correction belongs here
+and we will put it here.
 
 ---
 
