@@ -533,9 +533,26 @@ What needs money is evidenced by transaction hashes instead.
 | suite | what it covers | |
 |---|---|---|
 | `node --test cli/test/*.mjs` | the agent's pure logic: 402 parsing, `--max`, exit codes, price formatting | 16 |
-| `packages/x402-stellar-paywall` — `npm test` | protocol shaping, and that a failed verify never reaches settle | 17 |
-| `packages/x402-stellar-paywall-py` — `pytest` | the same, in Python | 9 |
-| `contracts/agent-treasury` — `cargo test` | the allow-list, the rolling cap, and that a refusal costs no budget | 4 |
+| `packages/x402-stellar-paywall` — `npm test` | protocol shaping, that a failed verify never reaches settle, and that the facilitator gets our price not the client's | 18 |
+| `packages/x402-stellar-paywall-py` — `pytest` | the same, in Python | 10 |
+| `contracts/agent-treasury` — `cargo test` | agent authorization, the allow-list, the rolling cap, replay of a signed pay, and that a refusal costs no budget | 12 |
+
+## Security
+
+We audited our own code and [wrote down what we found](SECURITY.md), fixes and
+all, because a payments system you cannot see the seams of is one you cannot
+trust. Three issues, each with a regression test that fails before the fix and
+passes after:
+
+- the paywall forwarded the **client's** copy of the price to the facilitator, so
+  a payer could have unlocked a $0.10 gate for $0.0000001 — now it sends its own;
+- the agent treasury checked the allow-list and the cap but **not who was
+  calling**, an open drain the cap only rate-limited — now every payment requires
+  the agent's authorization, bound to the exact call;
+- the credential relation published the full permutation state, from which one
+  inversion recovered the secret — now truncated to a digest (see Honest limits).
+
+The point is not that the code was flawless. It is that the seams are visible.
 
 ## Honest limits
 
