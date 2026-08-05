@@ -56,20 +56,15 @@ expected round from the **ledger sequence** and refuses anything else.
 ./demo-crowd.sh
 ```
 
-```
-1. the challenge comes from the ledger, not from us
-   round 9b150000...  (ledger_sequence / 720, refused if stale)
-2. the issuer admits a member: one credential, one root
-   commitment C 54755715...   (fresh blinder; the leaf appears nowhere)
-3. the API starts, knowing only the root
-   listening on :4800 — it holds a root, and no list of members
-4. the agent proves membership and that it acted, and pays
-   membership verified, nullifier burned by consensus
-   .../tx/8ce1969938bd111e511b8a3e159274c71139d47f701d6dbd7f5bf775c33d37b5
-   200 unlocked
-   {"premium":"paid for by a member of the set, and the set is all this server knows",
-    "settled_by":"f6308c862154bb9c91cccfd57b85298388d8e799a9f3b338b0193d59978e8b55"}
-```
+![an anonymous purchase, recorded end to end on testnet](docs/demo-crowd.gif)
+
+That recording is unedited and the run is real: the nullifier burned in
+[`dfca24a0…`](https://stellar.expert/explorer/testnet/tx/dfca24a0a6050a1360c844207596b7f640b9e8898020324e414f26e50b8aef01)
+at ledger 3,983,232 and the USDC settled in
+[`9a4ac383…`](https://stellar.expert/explorer/testnet/tx/9a4ac3836685070b09edda8eda7a726ff2f5438d0c6d0cfba6915bdce6896db7)
+three ledgers later. Forty-one seconds from nothing to a paid, anonymous
+unlock. The raw asciicast is [`docs/demo-crowd.cast`](docs/demo-crowd.cast) if
+you would rather read it than watch it.
 
 Run it twice inside the same hour and the second is refused — by the contract,
 not by the script. That refusal is the single-use guarantee showing its face.
