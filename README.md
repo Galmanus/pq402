@@ -13,6 +13,10 @@ sub-lane 3A, Agentic Payments (x402 / MPP)
 ![privacy](https://img.shields.io/badge/seller%20learns-set%20membership%20only-critical)
 ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
+**[Read the paper](paper/pq402.pdf)** — seven pages on what the server learns,
+the four undocumented details of x402 on Stellar, and every claim with its
+transaction hash.
+
 ---
 
 ## The part we have not seen done before
