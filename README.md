@@ -19,6 +19,29 @@ literature this stands on, and every claim with its transaction hash.
 
 ---
 
+### The 30-second version
+
+An AI agent pays an API over **x402 on Stellar**, and a **Soroban contract**
+checks a **post-quantum credential** before the unlock — proving the agent
+belongs to an allowed set **without the server learning which member it is**.
+Pay and prove are separated, so two payments by one credential cannot be linked.
+
+- **It runs.** One command, `./demo-crowd.sh`, does the whole anonymous purchase
+  end to end on testnet — [recorded below](#the-part-we-have-not-seen-done-before),
+  unedited, with the [nullifier burn](https://stellar.expert/explorer/testnet/tx/dfca24a0a6050a1360c844207596b7f640b9e8898020324e414f26e50b8aef01)
+  and [USDC settlement](https://stellar.expert/explorer/testnet/tx/9a4ac3836685070b09edda8eda7a726ff2f5438d0c6d0cfba6915bdce6896db7)
+  as clickable transactions.
+- **It is post-quantum where it counts.** A hash-based Circle STARK verified in
+  contract code — no trusted setup, nothing Shor breaks. This is a working
+  instance of the STARK candidate [Stellar's own Quantum Preparedness Plan](https://stellar.org/blog/foundation-news/introducing-the-quantum-preparedness-plan)
+  names for the ZK layer it has not yet solved (see the note below).
+- **The seams are visible.** We audited our own code, [found and fixed three
+  issues](SECURITY.md), and every load-bearing claim carries a transaction hash.
+
+New here? Jump to [The part we have not seen done before](#the-part-we-have-not-seen-done-before).
+
+---
+
 > **On Stellar's Quantum Preparedness Plan (4 Aug 2026).** The
 > [QPP](https://stellar.org/blog/foundation-news/introducing-the-quantum-preparedness-plan)
 > is a signature-migration plan — ML-DSA on Soroban, quantum-safe account
