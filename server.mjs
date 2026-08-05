@@ -181,6 +181,24 @@ const challenges = new Map(); // roundHex → issued_at (single use)
 const nullifiers = new Set(); // spent, forever
 const passes = new Map(); // token → {leaf, at} (single use)
 
+// A challenge is only useful for the seconds between a prover reading it and
+// submitting its proof. Without a bound, GET /premium — unauthenticated and
+// free — grows `challenges` forever, so a flood of requests is a memory-DoS.
+// Expire them, and reject a stale one at unlock rather than only bounding the
+// map: a challenge older than this is not fresh, whoever holds it.
+const CHALLENGE_TTL_MS = Number(process.env.PQ_CHALLENGE_TTL_MS || 10 * 60_000);
+function sweepChallenges() {
+  const cutoff = Date.now() - CHALLENGE_TTL_MS;
+  for (const [k, at] of challenges) if (at < cutoff) challenges.delete(k);
+}
+/** Redeem a challenge: present AND fresh, consumed on success. */
+function redeemChallenge(roundHex) {
+  const at = challenges.get(roundHex);
+  if (at === undefined) return false;
+  challenges.delete(roundHex); // single use, whatever the outcome
+  return Date.now() - at <= CHALLENGE_TTL_MS;
+}
+
 // Relation mode: a 16-slot credential tree of leaf DIGESTS (64-byte hex
 // each). Empty slots hold arbitrary distinct placeholder digests; issuing a
 // credential writes the next slot and recomputes the root with the same
@@ -363,6 +381,7 @@ const readBody = (req) =>
   });
 
 const server = createServer(async (req, res) => {
+ try {
   const url = new URL(req.url, `http://${req.headers.host}`);
 
   if (req.method === "GET" && url.pathname === "/") {
@@ -385,7 +404,12 @@ const server = createServer(async (req, res) => {
   // relation mode writes the 64-byte leaf DIGEST into the Merkle tree and
   // recomputes the root that the chain will enforce.
   if (req.method === "POST" && url.pathname === "/pq/register") {
-    const body = JSON.parse(await readBody(req));
+    let body;
+    try {
+      body = JSON.parse(await readBody(req));
+    } catch {
+      return json(res, 400, { error: "invalid JSON body (or body too large)" });
+    }
     if (RELATION_MODE) {
       const digest = body.digest || (body.leaf || "").slice(0, 128);
       if (!/^[0-9a-f]{128}$/.test(digest))
@@ -436,8 +460,8 @@ const server = createServer(async (req, res) => {
       if (leU64Hex(p.action.map(Number)) !== leU64Hex(ACTION))
         return json(res, 403, { error: "action mismatch: proof is not for this resource" });
       const roundHex = leU64Hex(p.round.map(Number));
-      if (!challenges.delete(roundHex))
-        return json(res, 403, { error: "unknown or reused challenge round" });
+      if (!redeemChallenge(roundHex))
+        return json(res, 403, { error: "unknown, reused, or expired challenge round" });
       if (p.rootHex !== treeRoot)
         return json(res, 403, { error: "root mismatch: proof is not against the current credential tree" });
       if (nullifiers.has(p.nullifierHex))
@@ -484,8 +508,8 @@ const server = createServer(async (req, res) => {
     if (leU64Hex(p.action.map(Number)) !== leU64Hex(ACTION))
       return json(res, 403, { error: "action mismatch: proof is not for this resource" });
     const roundHex = leU64Hex(p.round.map(Number));
-    if (!challenges.delete(roundHex))
-      return json(res, 403, { error: "unknown or reused challenge round" });
+    if (!redeemChallenge(roundHex))
+      return json(res, 403, { error: "unknown, reused, or expired challenge round" });
     if (!registry.has(p.leafHex))
       return json(res, 403, { error: "leaf not in credential registry" });
     if (nullifiers.has(p.nullifierHex))
@@ -586,6 +610,7 @@ const server = createServer(async (req, res) => {
       });
     }
     // 402 with both the x402 shape and the PQ challenge.
+    sweepChallenges(); // bound the map on the unauthenticated path that grows it
     const round = freshRound();
     const roundHex = leU64Hex(round);
     challenges.set(roundHex, Date.now());
@@ -663,6 +688,12 @@ const server = createServer(async (req, res) => {
   }
 
   json(res, 404, { error: "not found" });
+ } catch (e) {
+  // No handler should throw past its own guards, but if one does, a hung
+  // socket is the worst outcome: the client waits forever and the cause is
+  // invisible. Answer 500 instead, unless a response is already on the wire.
+  if (!res.headersSent) json(res, 500, { error: "internal error", detail: String(e && e.message || e) });
+ }
 });
 
 async function boot() {

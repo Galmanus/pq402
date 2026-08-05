@@ -6,6 +6,24 @@ on-chain relation and its parameters are audited separately in the
 lives here and, in the case of the published packages, runs on other people's
 servers.
 
+## 2026-08-05 — server robustness: two lower-severity issues (fixed)
+
+Not exploitable for theft, but the kind of rough edge an auditor notices, so
+recorded here too.
+
+- **`challenges` grew without bound.** Every `GET /premium` issues a fresh
+  challenge and stored it in a map that only shrank on a matching unlock. The
+  endpoint is unauthenticated and free, so a flood of requests was a slow
+  memory exhaustion. Now challenges carry a TTL, are swept on issuance, and a
+  stale one is rejected at unlock rather than merely bounded — freshness, not
+  just a memory cap.
+- **`POST /pq/register` could hang the request.** Its `JSON.parse` was
+  unguarded while `/pq/unlock`'s was wrapped, so a malformed or oversized body
+  rejected the async handler with no response sent, leaving the client to time
+  out. Now it answers 400, and the whole request dispatcher carries an outer
+  guard that returns 500 rather than hanging if any future handler throws past
+  its own checks.
+
 ## 2026-08-05 — the treasury authenticated nobody (fixed)
 
 **Severity: high. `contracts/agent-treasury`. Fixed the same day.**
