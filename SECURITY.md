@@ -6,6 +6,27 @@ on-chain relation and its parameters are audited separately in the
 lives here and, in the case of the published packages, runs on other people's
 servers.
 
+## 2026-08-05 — two issues in the credential gate the package ships (fixed)
+
+**`packages/x402-stellar-paywall/src/credential.mjs`. Fixed the same day.**
+
+- **The eighth challenge limb was a copy of the first (low).** `freshRound`
+  read each 4-byte window at offset `(i * 4) % 28`; on a 32-byte buffer the
+  eighth limb wrapped back to offset 0, so `limb[7]` equalled `limb[0]` on every
+  draw. The challenge was one limb shy of its claimed entropy — not exploitable
+  at ~217 remaining bits, but a "fresh" value with a deterministic internal
+  relationship, and it ships in the published package. Offset is now `i * 4`
+  (offset 28 reads bytes 28..31, which is valid), and a test asserts the two
+  limbs are independent across draws.
+- **Verify-only mode could grant a replayable pass (medium).** In `verify_q`
+  mode (`spend:false` or `queries != 40`) nothing is burned on-chain and the
+  module keeps no nullifier set, so the only thing refusing a replayed proof is
+  the single-use round — which was optional. Without it, the same proof
+  unlocked repeatedly. `unlock` now refuses verify-only mode unless a
+  single-use `round` is supplied, turning a silent replay hole into a visible
+  400. The default (`spend:true`, 40 queries) was never affected: it burns the
+  nullifier in consensus.
+
 ## 2026-08-05 — the buyer CLI's --max could be skipped by an unreadable price (fixed)
 
 **Severity: medium. `cli/bin/stellar-agent-pay.mjs`. Fixed the same day.**

@@ -121,9 +121,30 @@ test("a challenge is eight canonical M31 limbs, and fresh each time", () => {
   assert.equal(leU64Hex(a).length, 128, "eight little-endian u64s is 64 bytes");
 });
 
+test("the eighth limb is independent of the first, not a copy of it", () => {
+  // The bug this pins: reading offset `(i*4) % 28` wrapped the eighth limb
+  // back to the first's bytes, so limb[7] === limb[0] on EVERY draw — a
+  // challenge one limb shy of its claimed entropy. A correct draw makes them
+  // equal only by 1-in-2^31 chance, so across several draws at least one must
+  // differ; the bug makes them equal every time.
+  const differ = Array.from({ length: 8 }, () => freshRound()).some((r) => r[0] !== r[7]);
+  assert.ok(differ, "limb[7] must not be a deterministic copy of limb[0]");
+});
+
 test("a gate needs somewhere to send the proof and someone to send it", () => {
   assert.throws(() => credentialGate({}), /contract is required/);
   assert.throws(() => credentialGate({ contract: "C…" }), /source is required/);
+});
+
+test("verify-only mode refuses to unlock without a single-use round", async () => {
+  // verify_q burns nothing on-chain and the module keeps no nullifier set, so
+  // without a round there is nothing to stop a replay. The refusal happens
+  // before any CLI call, so this needs no chain.
+  const c = credentialGate({ contract: "CA6QM6DR", source: "k", spend: false });
+  const out = await c.unlock("cHJvb2Y=", "abcd"); // no { round }
+  assert.equal(out.ok, false);
+  assert.equal(out.status, 400);
+  assert.match(out.error, /round/);
 });
 
 test("the challenge headers name the contract that will judge", () => {

@@ -37,10 +37,16 @@ export function leU64Hex(limbs) {
   return b.toString("hex");
 }
 
-/** A fresh single-use challenge: eight canonical M31 elements. */
+/** A fresh single-use challenge: eight canonical M31 elements.
+ *
+ * Each limb reads a distinct 4-byte window of the 32 random bytes. The offset
+ * is `i * 4`, not `(i * 4) % 28`: on a 32-byte buffer offset 28 reads bytes
+ * 28..31 and is perfectly valid, whereas the modulo wrapped the eighth limb
+ * back to offset 0 — making limb[7] a deterministic copy of limb[0] and the
+ * challenge one limb shy of the entropy it claimed. */
 export function freshRound() {
   const r = randomBytes(32);
-  return Array.from({ length: 8 }, (_, i) => r.readUInt32LE((i * 4) % 28) % P31);
+  return Array.from({ length: 8 }, (_, i) => r.readUInt32LE(i * 4) % P31);
 }
 
 /**
@@ -107,6 +113,22 @@ export function credentialGate({
   async function unlock(proofB64, publicsHex, { round } = {}) {
     if (typeof proofB64 !== "string" || typeof publicsHex !== "string")
       return { ok: false, status: 400, error: "proof_b64 and publics_hex are required" };
+
+    // Where single use comes from depends on the mode. `spend` at 40 queries
+    // burns the nullifier on-chain, so replay is refused by consensus whether
+    // or not a round is supplied. `verify_q` burns nothing and this module
+    // keeps no nullifier set, so the ONLY thing standing between it and an
+    // infinitely replayable proof is the single-use round. Requiring it here
+    // turns a silent replay hole into a refusal a caller can see and fix.
+    const consuming = spend && queries === 40;
+    if (!consuming && !round)
+      return {
+        ok: false,
+        status: 400,
+        error:
+          "verify-only mode (spend:false or queries!=40) has no on-chain burn, " +
+          "so unlock requires a single-use { round } to refuse replays",
+      };
     if (round && !challenges.delete(round))
       return { ok: false, status: 403, error: "unknown or reused challenge round" };
 
@@ -118,8 +140,8 @@ export function credentialGate({
 
     // `spend` verifies at production security and burns; `verify_q` only
     // verifies. Burning is what makes single use a fact about the ledger
-    // rather than a fact about this process.
-    const consuming = spend && queries === 40;
+    // rather than a fact about this process. `consuming` was computed above,
+    // where it also decides whether a single-use round is mandatory.
     const args = [
       "contract", "invoke", "--id", contract, "--source", source, "--network", network,
       ...(consuming ? ["--send=yes", "--", "spend"] : ["--", "verify_q"]),
