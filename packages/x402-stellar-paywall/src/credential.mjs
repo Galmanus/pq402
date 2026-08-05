@@ -129,8 +129,23 @@ export function credentialGate({
           "verify-only mode (spend:false or queries!=40) has no on-chain burn, " +
           "so unlock requires a single-use { round } to refuse replays",
       };
-    if (round && !challenges.delete(round))
-      return { ok: false, status: 403, error: "unknown or reused challenge round" };
+    // The challenge must be bound to the proof, not taken on the caller's word.
+    // The round is a public input, sitting at limbs 8..16 of the binding
+    // publics (action‖round‖leaf‖nullifier, eight limbs each) — hex 128..256.
+    // Consuming a caller-supplied `round` that need not equal the proof's own
+    // round lets a client burn challenge X while proving against round Y, then
+    // replay the same proof against X', X''… each a fresh challenge. So the
+    // round we check and consume is the one INSIDE the proof; a supplied
+    // `round` that disagrees is a refusal, not a silent substitution.
+    if (round) {
+      if (typeof publicsHex !== "string" || publicsHex.length < 256)
+        return { ok: false, status: 400, error: "publics_hex too short to carry a round" };
+      const proofRound = publicsHex.slice(128, 256).toLowerCase();
+      if (round.toLowerCase() !== proofRound)
+        return { ok: false, status: 403, error: "the round does not match the proof's public round" };
+      if (!challenges.delete(proofRound))
+        return { ok: false, status: 403, error: "unknown or reused challenge round" };
+    }
 
     const dir = mkdtempSync(join(tmpdir(), "x402-cred-"));
     const proofPath = join(dir, "proof.bin");

@@ -18,6 +18,7 @@ servers.
   relationship, and it ships in the published package. Offset is now `i * 4`
   (offset 28 reads bytes 28..31, which is valid), and a test asserts the two
   limbs are independent across draws.
+- **The challenge was not bound to the proof (medium).** unlock consumed a caller-supplied round that need not equal the round embedded in the proof publics, so a client could burn challenge X while proving against round Y and replay the proof against fresh challenges. It now checks the round INSIDE the publics (limbs 8..16) and refuses a supplied round that disagrees.
 - **Verify-only mode could grant a replayable pass (medium).** In `verify_q`
   mode (`spend:false` or `queries != 40`) nothing is burned on-chain and the
   module keeps no nullifier set, so the only thing refusing a replayed proof is

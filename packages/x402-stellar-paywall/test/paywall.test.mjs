@@ -147,6 +147,22 @@ test("verify-only mode refuses to unlock without a single-use round", async () =
   assert.match(out.error, /round/);
 });
 
+test("the consumed challenge must be the round inside the proof, not one beside it", async () => {
+  // The attack: consume issued challenge X while the proof commits to round Y,
+  // so the same proof can be replayed against fresh challenges. The gate must
+  // check the round embedded in the publics, not a caller-supplied field that
+  // disagrees with it. All refusals here precede any CLI call.
+  const c = credentialGate({ contract: "CA6QM6DR", source: "k", spend: false });
+  // publics = action(8) ‖ round(8) ‖ leaf(8) ‖ nullifier(8) limbs = 512 hex.
+  const roundY = "bb".repeat(64); // hex 128..256 — the proof's real round
+  const publics = "aa".repeat(64) + roundY + "cc".repeat(64) + "dd".repeat(64);
+  const roundX = "11".repeat(64); // a different value the caller claims
+  const out = await c.unlock("cHJvb2Y=", publics, { round: roundX });
+  assert.equal(out.ok, false);
+  assert.equal(out.status, 403);
+  assert.match(out.error, /does not match the proof/);
+});
+
 test("the challenge headers name the contract that will judge", () => {
   const c = credentialGate({ contract: "CA6QM6DR", source: "k" });
   const h = c.challengeHeaders();
@@ -158,7 +174,12 @@ test("the challenge headers name the contract that will judge", () => {
 
 test("an unknown or reused round is refused before the chain is asked", async () => {
   const c = credentialGate({ contract: "CA6QM6DR", source: "k" });
-  const out = await c.unlock("AA==", "00", { round: "never-issued" });
+  // A full-length publics whose embedded round was never issued: the supplied
+  // round matches the proof (so it is not the mismatch refusal), but no
+  // challengeHeaders() ever handed it out, so challenges.delete finds nothing.
+  const round = "77".repeat(64);
+  const publics = "aa".repeat(64) + round + "cc".repeat(64) + "dd".repeat(64);
+  const out = await c.unlock("AA==", publics, { round });
   assert.equal(out.ok, false);
   assert.equal(out.status, 403);
   assert.match(out.error, /unknown or reused/);
