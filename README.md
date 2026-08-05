@@ -46,6 +46,30 @@ Both verdicts come from Soroban contracts, not from the server, and the
 challenge is not the server's to choose either: the acting contract derives the
 expected round from the **ledger sequence** and refuses anything else.
 
+**One command, from nothing to an anonymous purchase:**
+
+```bash
+./demo-crowd.sh
+```
+
+```
+1. the challenge comes from the ledger, not from us
+   round 9b150000...  (ledger_sequence / 720, refused if stale)
+2. the issuer admits a member: one credential, one root
+   commitment C 54755715...   (fresh blinder; the leaf appears nowhere)
+3. the API starts, knowing only the root
+   listening on :4800 — it holds a root, and no list of members
+4. the agent proves membership and that it acted, and pays
+   membership verified, nullifier burned by consensus
+   .../tx/8ce1969938bd111e511b8a3e159274c71139d47f701d6dbd7f5bf775c33d37b5
+   200 unlocked
+   {"premium":"paid for by a member of the set, and the set is all this server knows",
+    "settled_by":"f6308c862154bb9c91cccfd57b85298388d8e799a9f3b338b0193d59978e8b55"}
+```
+
+Run it twice inside the same hour and the second is refused — by the contract,
+not by the script. That refusal is the single-use guarantee showing its face.
+
 Live on testnet, [`examples/crowd-app`](examples/crowd-app):
 
 | | transaction |

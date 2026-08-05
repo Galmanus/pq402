@@ -39,6 +39,7 @@ app.get("/premium", pay, (req, res) => {
   });
 });
 
-app.listen(4800, () =>
-  console.log("crowd app on http://localhost:4800/premium — anonymous membership + payment")
+const PORT = Number(process.env.PORT || 4800);
+app.listen(PORT, () =>
+  console.log(`crowd app on http://localhost:${PORT}/premium — anonymous membership + payment`)
 );
