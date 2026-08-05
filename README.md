@@ -13,9 +13,26 @@ sub-lane 3A, Agentic Payments (x402 / MPP)
 ![privacy](https://img.shields.io/badge/seller%20learns-set%20membership%20only-critical)
 ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
-**[Read the paper](paper/pq402.pdf)** — seven pages on what the server learns,
-the four undocumented details of x402 on Stellar, and every claim with its
-transaction hash.
+**[Read the paper](paper/pq402.pdf)** — nine pages on what the server learns,
+the four undocumented details of x402 on Stellar, the post-quantum credential
+literature this stands on, and every claim with its transaction hash.
+
+---
+
+> **On Stellar's Quantum Preparedness Plan (4 Aug 2026).** The
+> [QPP](https://stellar.org/blog/foundation-news/introducing-the-quantum-preparedness-plan)
+> is a signature-migration plan — ML-DSA on Soroban, quantum-safe account
+> signers. That is a different layer from this work, and we do not claim
+> otherwise. But the plan is candid about what it defers: *"The QPP does not yet
+> address pairing-based zero-knowledge protocols built on Stellar… STARKs and
+> lattice-based proof systems are candidates, each with significant trade-offs.
+> As part of QPP we will convene ZK protocol teams… to develop a shared research
+> agenda."* The ZK layer is the **unfinished** half of Stellar's quantum
+> migration, and STARKs are one of the two **named** candidates. This repo is a
+> working instance of that candidate, and the "significant trade-offs" it
+> mentions are the ones measured below: a 196 KB proof at 86% of the
+> transaction envelope, ~96 bits, ~2× a pairing.
+> Not an endorsement — a data point of the kind the plan says is missing.
 
 ---
 

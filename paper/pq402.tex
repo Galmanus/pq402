@@ -116,6 +116,40 @@ Three things had to be true at once, and only recently are:
     restarting a process.
 \end{itemize}
 
+\subsection{Where this sits in Stellar's own quantum plan}
+
+On 4 August 2026, days before this was written, the Stellar Development
+Foundation published its Quantum Preparedness
+Plan.\footnote{\texttt{stellar.org/blog/foundation-news/introducing-the-quantum-preparedness-plan}}
+It is a signature-migration plan first: ML-DSA-44 and ML-DSA-65 as Soroban host
+functions in 2026, quantum-safe signers on classic accounts in 2027, Ed25519
+retired when the threat demands it. None of that is what this work does; account
+authentication is a different layer, and the disanalogy should be stated rather
+than blurred.
+
+The plan is candid about what it does not cover, and that paragraph is this
+work's exact address:
+
+\begin{quote}
+``The QPP does not yet address pairing-based zero-knowledge protocols built on
+Stellar\ldots there is no drop-in post-quantum replacement for pairing-based
+SNARKs with comparable performance. STARKs and lattice-based proof systems are
+candidates, each with significant trade-offs. As part of QPP we will convene ZK
+protocol teams\ldots to develop a shared research agenda.''
+\end{quote}
+
+Two of the plan's own words carry the point. The zero-knowledge layer is the
+\emph{unfinished} half of Stellar's quantum migration, and STARKs are one of the
+two \emph{named} candidates for it. This system is a working instance of that
+candidate --- a Circle STARK verified inside a Soroban contract --- and the
+``significant trade-offs'' the plan gestures at are the ones the Measurements
+section puts numbers on: a 196\,KB proof filling 86\% of the transaction
+envelope, roughly 96 conjectured bits of soundness, and about twice the
+instruction cost of a pairing. That is not an endorsement of this work by the
+foundation, which the plan does not give and this paper does not claim. It is a
+data point of exactly the kind the plan says is missing, arriving as the
+foundation asks for them.
+
 \section{What the system does}
 
 A request to a paid route meets two independent gates. Neither is decided by
