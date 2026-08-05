@@ -1,7 +1,7 @@
 # pq402
 
-**An x402 paid API on Stellar whose unlock also requires a post-quantum
-credential — and a CLI agent that completes the whole loop from the terminal.**
+**An API that charges an AI agent, checks it is allowed to buy, and never
+learns which buyer it was.**
 
 Stellar Summit SP 2026 · Payments and Agent Tooling (SDF DevEx) ·
 sub-lane 3A, Agentic Payments (x402 / MPP)
@@ -10,7 +10,70 @@ sub-lane 3A, Agentic Payments (x402 / MPP)
 ![protocol](https://img.shields.io/badge/x402-v2%20exact-blue)
 ![fees](https://img.shields.io/badge/agent%20XLM%20needed-zero-brightgreen)
 ![proof](https://img.shields.io/badge/credential-post--quantum%20STARK-purple)
+![privacy](https://img.shields.io/badge/seller%20learns-set%20membership%20only-critical)
 ![license](https://img.shields.io/badge/license-MIT-lightgrey)
+
+---
+
+## The part we have not seen done before
+
+Every agentic-payment demo answers one question: *did the agent pay?* Metered
+APIs have a second one — *is this agent allowed to buy this at all?* — and the
+usual answers, an API key or an account, stamp the buyer's identity onto every
+request they ever make.
+
+This answers both, and answers the second **without learning who is asking**.
+
+```json
+{ "premium": "paid for by a member of the set, and the set is all this server knows" }
+```
+
+That response is not a slogan; it is the literal ceiling of what the server
+knows. The credential proof publishes a commitment
+
+```
+C = compress(leaf ‖ blinder)        fresh blinder every use, leaf never
+```
+
+and two proofs compose on that shared `C`: one proves a member acted and burns
+a nullifier so it cannot act twice, the other proves `C` sits under the
+issuer's published root through a **private** authentication path. The server
+sees that someone in the set paid. It cannot tell which member, and it cannot
+link two payments by the same credential to each other, because no public value
+survives from one use to the next.
+
+Both verdicts come from Soroban contracts, not from the server, and the
+challenge is not the server's to choose either: the acting contract derives the
+expected round from the **ledger sequence** and refuses anything else.
+
+Live on testnet, [`examples/crowd-app`](examples/crowd-app):
+
+| | transaction |
+|---|---|
+| credential burned by consensus | [`d87d75d6…`](https://stellar.expert/explorer/testnet/tx/d87d75d6aa291b42e37bfdc4d56f8b868bae270d53239bb8dd656aec5f237748) |
+| USDC settled, fee paid by the facilitator | [`7b47f7fb…`](https://stellar.expert/explorer/testnet/tx/7b47f7fbd23ad6ed44b667903c66adb634fd721cb49e0f6d0c8606a3172940ec) |
+
+And it is a configuration option, not a fork — one word in the middleware this
+repo publishes:
+
+```js
+credential: { mode: "crowd", actContract, membershipContract, root, source }
+```
+
+**On the claim.** We know of no prior x402 payment gated by an unlinkable
+credential, on Stellar or anywhere, and no prior STARK verified directly by a
+Soroban contract — everything verifying zero-knowledge proofs on Soroban today
+is pairing-based, and RISC Zero reaches Stellar only after a Groth16 wrapper
+that reintroduces pairings and a trusted setup at the last step. That is a
+statement about what public search surfaced on 2 August 2026, not a proof of
+absence. If it is wrong, the correction belongs here and we will put it here.
+
+---
+
+## The ordinary path, for comparison
+
+The same loop with the identifying credential — simpler, one proof, and the
+server does learn which credential paid:
 
 ```
 $ stellar agent-pay http://localhost:4402/premium --max 0.10
@@ -36,7 +99,9 @@ can overrule neither.
 
 | contract | address | what it decides |
 |---|---|---|
-| credential verifier | [`CA6QM6DR…`](https://stellar.expert/explorer/testnet/contract/CA6QM6DRPVYRHFWEWNATDIKLL4P47XBI2OWVL7226WHHOTFEY2W2JKET) | is this a valid, unspent credential — verifies a hash-based STARK and burns the nullifier in its own storage |
+| crowd gate | [`CAEZ25KZ…`](https://stellar.expert/explorer/testnet/contract/CAEZ25KZFMYAL44I342B44VYG5KVO5ESHNDQXC2Y3VSWN5XAN3OQOANO) | did a member act, under a commitment that names nobody — and burns the nullifier. Derives the round from the ledger, so freshness is not the server's to assert |
+| membership | [`CDO2NDPR…`](https://stellar.expert/explorer/testnet/contract/CDO2NDPR37AEDFZJTN3MBHMS6QBDQ6Y44YCGPGRIOXHKWPX4L2JPXIWK) | is that commitment under the issuer's root, proved through a private path |
+| credential verifier | [`CA6QM6DR…`](https://stellar.expert/explorer/testnet/contract/CA6QM6DRPVYRHFWEWNATDIKLL4P47XBI2OWVL7226WHHOTFEY2W2JKET) | the identifying path: is this a valid, unspent credential — verifies a hash-based STARK and burns the nullifier |
 | agent treasury | [`contracts/agent-treasury`](contracts/agent-treasury) | is this payment inside policy — a rolling daily cap and a contract allow-list, refused in consensus |
 
 The treasury's source is in this repo (Rust, `soroban-sdk`). The verifier's is
@@ -267,48 +332,6 @@ configuration — payment settled by a facilitator, credential judged by a
 contract — in about twenty lines. It returned
 `{"premium":"paid for, and proved eligible, without saying who","settled_by":"dcfed383…"}`.
 
-### The seller does not learn who bought
-
-One word further — `mode: "crowd"` — and the credential stops identifying the
-buyer at all. The relation publishes `C = compress(leaf ‖ blinder)` with a
-fresh blinder each use, never the leaf. Two halves compose on that shared `C`:
-one proves a member acted and burns a nullifier, the other proves `C` sits
-under the issuer's root via a private path.
-
-The server learns that **someone in the set paid**. Not which member. And two
-payments by one credential share no public value, so they cannot be linked to
-each other either. The challenge is not the server's to choose: `act` derives
-the round from the ledger sequence and refuses anything else.
-
-[`examples/crowd-app`](examples/crowd-app), on testnet:
-
-| | tx |
-|---|---|
-| credential burned by consensus | [`d87d75d6…`](https://stellar.expert/explorer/testnet/tx/d87d75d6aa291b42e37bfdc4d56f8b868bae270d53239bb8dd656aec5f237748) |
-| USDC settled | [`7b47f7fb…`](https://stellar.expert/explorer/testnet/tx/7b47f7fbd23ad6ed44b667903c66adb634fd721cb49e0f6d0c8606a3172940ec) |
-
-```json
-{"premium": "paid for by a member of the set, and the set is all this server knows"}
-```
-
-## Agent treasury: a spending rule the agent cannot talk its way out of
-
-`--max` on the CLI is a promise the agent makes to itself; a compromised or
-prompt-injected agent simply stops making it. **[`contracts/agent-treasury`](contracts/agent-treasury)**
-is the same limit as a rule, in a Soroban contract, refused in consensus:
-
-```
-1. INSIDE  policy — 0.02 USDC   → settled, tx 50fb38c77a1b9fa3bb74e541c21d27b7…
-2. OUTSIDE policy — over cap    → REFUSED by the contract, #3 DailyCapExceeded
-3. OUTSIDE policy — wrong token → REFUSED by the contract, #2 ContractNotAllowed
-remaining after both refusals: unchanged — a refusal costs no budget
-```
-
-A rolling daily cap keyed off ledger time, and a contract allow-list so a
-stolen policy key cannot be pointed at a token the treasury was never meant to
-touch. `./contracts/agent-treasury/demo/policy.sh` deploys a fresh treasury,
-funds it, and runs all three.
-
 ## Layout
 
 ```
@@ -320,7 +343,8 @@ bin/         prover binaries, built from the riverrun-m31 Rust crate
 cli/         `stellar agent-pay`, the plugin the agent runs
 ui/          the booth's page
 packages/    x402-stellar-paywall, the middleware kit (JS and Python)
-examples/    second-app (Express), fastapi-app (Python), gated-app (both gates)
+examples/    crowd-app (anonymous membership), gated-app (both gates),
+             second-app (Express), fastapi-app (Python)
 contracts/   agent-treasury, the on-chain spending policy
 ```
 
@@ -332,6 +356,7 @@ contracts/   agent-treasury, the on-chain spending policy
 | *working paywall with sponsored gas* | every settlement's fee is paid by the facilitator, visible in the fee account differing from the agent |
 | *x402 middleware kit for Express/Hono/FastAPI, published as a reusable package* | [published on npm](https://www.npmjs.com/package/x402-stellar-paywall); the Python twin installs from this repo, PyPI pending. Gates [`examples/second-app`](examples/second-app) (Express) and [`examples/fastapi-app`](examples/fastapi-app) (FastAPI), each paid on testnet |
 | *agent treasury with policy signers — inside policy succeeds, outside refused on-chain* | [`contracts/agent-treasury`](contracts/agent-treasury) |
+| *(not asked for, and the reason to look)* | a payment whose seller learns set membership and nothing else — [`examples/crowd-app`](examples/crowd-app) |
 
 ### The CLI plugin
 
@@ -383,6 +408,12 @@ one that under-delivers.
   hash-based and survives Shor. The transaction carrying it is signed with
   Ed25519, which does not. This is a post-quantum component running on a
   pre-quantum chain, and the other half is the network's to supply.
+- **Which limitation applies depends on the mode.** In the default mode the
+  leaf is a public input, so the server knows which credential paid and two
+  payments by one credential are linkable. `mode: "crowd"` removes both: the
+  leaf never appears and each use carries a fresh blinder. The cost is a second
+  proof and a second transaction, and one credential acting once per hour-long
+  epoch rather than once per challenge.
 - **The credential relation publishes digests, and that took a fix.** Until
   04/08 it published the full sixteen-limb permutation state for both the leaf
   and the nullifier. Poseidon2 is a bijection and the context sits public
