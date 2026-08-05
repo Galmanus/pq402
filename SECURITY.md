@@ -6,7 +6,7 @@ on-chain relation and its parameters are audited separately in the
 lives here and, in the case of the published packages, runs on other people's
 servers.
 
-## 2026-08-05 — two issues in the credential gate the package ships (fixed)
+## 2026-08-05 — three issues in the credential gate the package ships (fixed)
 
 **`packages/x402-stellar-paywall/src/credential.mjs`. Fixed the same day.**
 
