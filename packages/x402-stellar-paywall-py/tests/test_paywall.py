@@ -112,3 +112,38 @@ def test_a_bad_payment_header_is_a_402_not_a_crash(monkeypatch):
     out = gate.settle("!!!not base64!!!")
     assert out.ok is False
     assert out.status == 402
+
+
+def test_settle_sends_our_requirements_not_the_clients_accepted(monkeypatch):
+    # The attack this closes: a payer signs a 1-unit transfer, echoes back
+    # "accepted" with the amount lowered (or pay_to redirected), and -- if the
+    # server forwarded that copy -- the facilitator would verify the payment
+    # against the attacker's own terms and settle it, unlocking for a fraction
+    # of the price.
+    seen = {}
+
+    def _call(self, kind, body):
+        if kind == "supported":
+            return {"kinds": [{"network": "stellar:testnet", "scheme": "exact",
+                               "extra": {"areFeesSponsored": True}}]}
+        seen[kind] = body
+        if kind == "verify":
+            return {"isValid": True}
+        return {"success": True, "transaction": "abc123"}
+
+    monkeypatch.setattr(Paywall, "_call", _call)
+    gate = Paywall(price="0.10", pay_to=PAY_TO, api_key="k")
+
+    tampered = {
+        "x402Version": 2,
+        "accepted": {"scheme": "exact", "network": "stellar:testnet",
+                     "amount": "1", "payTo": "GATTACKER", "asset": "CBOGUS"},
+    }
+    encoded = base64.b64encode(json.dumps(tampered).encode()).decode()
+    gate.settle(encoded)
+
+    for kind in ("verify", "settle"):
+        req = seen[kind]["paymentRequirements"]
+        assert req["amount"] == "1000000", f"{kind}: our price, not the client's 1"
+        assert req["payTo"] == PAY_TO, f"{kind}: our recipient, not the attacker's"
+        assert req["asset"] == USDC_SAC["stellar:testnet"], f"{kind}: our asset"

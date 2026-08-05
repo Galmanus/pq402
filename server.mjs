@@ -126,7 +126,14 @@ async function facilitate(kind, paymentPayload) {
     body: JSON.stringify({
       x402Version: paymentPayload.x402Version ?? 2,
       paymentPayload,
-      paymentRequirements: paymentPayload.accepted ?? paymentRequirements(),
+      // Our OWN requirements, never the client's echoed `accepted`. `verify`
+      // means "does this payment satisfy THESE terms", and the facilitator has
+      // no notion of our price beyond what we send — so forwarding the client's
+      // copy lets a payer sign a 1-unit transfer, declare `accepted.amount: 1`,
+      // pass verification against its own terms, and unlock at a fraction of
+      // the price (or redirect payTo entirely). We advertise exactly one
+      // requirement; the only correct answer is that one.
+      paymentRequirements: paymentRequirements(),
     }),
   });
   const text = await r.text();

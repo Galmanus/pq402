@@ -224,7 +224,15 @@ class Paywall:
         envelope = {
             "x402Version": payload.get("x402Version", 2),
             "paymentPayload": payload,
-            "paymentRequirements": payload.get("accepted") or self.requirements(),
+            # Our OWN requirements, never the client's echoed "accepted".
+            # "verify" asks the facilitator whether the payment satisfies THESE
+            # terms, and the facilitator knows no price but the one we send.
+            # Forwarding the client's copy lets a payer sign a 1-unit transfer,
+            # declare accepted.amount == 1, pass verification against its own
+            # terms, and unlock for a fraction of the price -- or set
+            # accepted.payTo and redirect the money. A paywall advertises one
+            # requirement; the only correct answer is that one.
+            "paymentRequirements": self.requirements(),
         }
         try:
             v = self._call("verify", envelope)

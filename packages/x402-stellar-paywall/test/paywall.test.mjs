@@ -166,3 +166,30 @@ test("checking a pass and consuming it are separate, because the handshake sends
   assert.equal(c.usePass(token), false, "an unissued pass is not live");
   assert.equal(c.hasPass(undefined), false);
 });
+
+test("settle sends OUR requirements to the facilitator, never the client's `accepted`", async () => {
+  // The attack this closes: a payer signs a 1-unit transfer, echoes back
+  // `accepted` with amount lowered (or payTo redirected), and — if the server
+  // forwarded that copy — the facilitator would verify the payment against the
+  // attacker's own terms and settle it, unlocking at a fraction of the price.
+  const calls = fakeFacilitator();
+  const gate = await paywall({ price: "0.10", payTo: PAY_TO, apiKey: "k" });
+
+  const tampered = {
+    x402Version: 2,
+    // what an honest client would echo is requirements(); this one lies.
+    accepted: { scheme: "exact", network: "stellar:testnet", amount: "1", payTo: "GATTACKER", asset: "CBOGUS" },
+  };
+  const encoded = Buffer.from(JSON.stringify(tampered)).toString("base64");
+  await gate.settle(encoded);
+
+  const verify = calls.find((c) => c.kind === "verify");
+  const settle = calls.find((c) => c.kind === "settle");
+  for (const [name, c] of [["verify", verify], ["settle", settle]]) {
+    assert.ok(c, `${name} was called`);
+    const req = c.body.paymentRequirements;
+    assert.equal(req.amount, "1000000", `${name}: amount is OUR price, not the client's 1`);
+    assert.equal(req.payTo, PAY_TO, `${name}: payTo is OUR recipient, not the attacker's`);
+    assert.equal(req.asset, USDC_SAC["stellar:testnet"], `${name}: asset is OUR asset`);
+  }
+});

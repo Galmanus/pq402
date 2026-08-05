@@ -153,7 +153,14 @@ export async function paywall({
     const envelope = {
       x402Version: payload.x402Version ?? 2,
       paymentPayload: payload,
-      paymentRequirements: payload.accepted ?? requirements(),
+      // Our OWN requirements, never the client's echoed `accepted`. `verify`
+      // asks the facilitator "does this payment satisfy THESE terms", and the
+      // facilitator knows no price but the one we send. Forwarding the client's
+      // copy lets a payer sign a 1-unit transfer, declare `accepted.amount: 1`,
+      // pass verification against its own terms, and unlock for a fraction of
+      // the price — or set `accepted.payTo` and redirect the money. A paywall
+      // advertises one requirement; the only correct answer is that one.
+      paymentRequirements: requirements(),
     };
     try {
       const v = await call("verify", envelope);
