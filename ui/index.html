@@ -3,82 +3,115 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>pq402 · riverrun ▸ soroban</title>
+<title>pq402 · pagamento pós-quântico ▸ soroban</title>
 <style>
   :root{
     --bone:#F2EFE9; --paper:#FBFAF7; --ink:#141414; --ink-2:#6E6A63;
-    --klein:#002FA7; --gold:#8A6D1F; --line:#D8D3C8;
+    --klein:#002FA7; --klein-2:#3358C6; --gold:#8A6D1F; --line:#D8D3C8;
+    --chain:#5B82E8; --danger:#8A2B1D;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  html{background:var(--bone)}
+  html{background:var(--bone);scroll-behavior:smooth}
   body{
     font:16px/1.55 "Helvetica Neue",Helvetica,Arial,sans-serif;
     color:var(--ink); min-height:100vh; padding:0 0 96px;
+    -webkit-font-smoothing:antialiased;
   }
   a{color:var(--klein);text-decoration:none;border-bottom:1px solid var(--klein)}
   a:focus-visible,button:focus-visible{outline:3px solid var(--klein);outline-offset:3px}
+  .mono{font-family:ui-monospace,"SF Mono","JetBrains Mono",Menlo,monospace}
 
   header{
     display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;
-    padding:28px 40px 22px;border-bottom:1px solid var(--ink);
+    padding:26px 40px 20px;border-bottom:1px solid var(--ink);
   }
   .stamp{font-weight:800;font-size:15px;letter-spacing:.02em}
   .stamp b{color:var(--klein);font-weight:800}
   .meta{font-size:12px;color:var(--ink-2);letter-spacing:.14em;text-transform:uppercase}
   .meta .chip{color:var(--klein)}
   header .right{margin-left:auto}
+  .live-dot{display:inline-block;width:7px;height:7px;border-radius:50%;
+    background:var(--klein);margin-right:6px;vertical-align:middle;animation:blink 1.8s infinite}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
 
-  .hero{padding:44px 40px 8px;max-width:1280px}
+  .hero{padding:48px 40px 6px;max-width:1320px}
+  .hero .kicker{
+    font-size:12px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--klein);margin-bottom:16px;
+  }
   .hero h1{
-    font-size:clamp(28px,4.6vw,58px);font-weight:800;line-height:1.02;
-    letter-spacing:-.02em;text-transform:uppercase;max-width:20ch;
+    font-size:clamp(30px,5vw,64px);font-weight:800;line-height:1.0;
+    letter-spacing:-.025em;text-transform:uppercase;max-width:20ch;
   }
   .hero h1 em{font-style:normal;color:var(--klein)}
-  .hero p{margin-top:14px;max-width:62ch;color:var(--ink-2)}
+  .hero p{margin-top:18px;max-width:64ch;color:var(--ink-2);font-size:17px}
+
+  /* post-quantum credibility strip */
+  .spec{
+    display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--line);
+    border-top:1px solid var(--ink);border-bottom:1px solid var(--ink);
+    margin:34px 0 0;
+  }
+  .spec .cell{background:var(--bone);padding:18px 22px}
+  .spec .k{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-2)}
+  .spec .v{font-size:15px;font-weight:800;margin-top:6px;line-height:1.25}
+  .spec .v b{color:var(--klein)}
+  @media (max-width:900px){.spec{grid-template-columns:repeat(2,1fr)}}
+  @media (max-width:520px){.spec{grid-template-columns:1fr}}
 
   .grid{
     display:grid;grid-template-columns:5fr 4fr;gap:32px;
-    padding:36px 40px 0;max-width:1440px;
+    padding:40px 40px 0;max-width:1480px;
   }
-  @media (max-width:960px){.grid{grid-template-columns:1fr}.room{position:static}}
+  @media (max-width:980px){.grid{grid-template-columns:1fr}.room{position:static;max-height:420px}}
 
-  /* ---- acts (left) ---- */
   .act{
     background:var(--paper);border:1px solid var(--line);
     padding:26px 28px 28px;margin-bottom:22px;position:relative;
+    transition:border-color .2s, box-shadow .2s, transform .2s;
   }
+  .act.armed{border-color:var(--klein);box-shadow:0 0 0 1px var(--klein)}
+  .act.done{border-color:var(--gold)}
   .act .n{
     position:absolute;top:-1px;left:-1px;width:44px;height:44px;
     display:grid;place-items:center;background:var(--ink);color:var(--bone);
-    font-weight:800;font-size:15px;
+    font-weight:800;font-size:15px;transition:background .2s;
   }
   .act.gold .n{background:var(--gold)}
   .act.klein .n{background:var(--klein)}
+  .act.done .n::after{content:"✓"}
+  .act.done .n span{display:none}
   .act h2{
     margin-left:56px;font-size:13px;font-weight:800;
-    letter-spacing:.16em;text-transform:uppercase;
+    letter-spacing:.16em;text-transform:uppercase;min-height:44px;display:flex;align-items:center;
   }
   .act p.exp{margin:14px 0 18px;color:var(--ink-2);max-width:52ch}
   button{
     font:inherit;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
     font-size:13px;padding:14px 26px;border:2px solid var(--ink);
-    background:var(--ink);color:var(--bone);cursor:pointer;
+    background:var(--ink);color:var(--bone);cursor:pointer;transition:background .15s,border-color .15s;
   }
   button:hover:not(:disabled){background:var(--klein);border-color:var(--klein)}
-  button:disabled{opacity:.35;cursor:not-allowed}
+  button:disabled{opacity:.32;cursor:not-allowed}
   .act .out{margin-top:16px;font-size:14px}
   .out .ok{color:var(--klein);font-weight:800}
-  .out .cred{
-    font-family:ui-monospace,"SF Mono","JetBrains Mono",Menlo,monospace;
-    font-size:12px;color:var(--gold);word-break:break-all;display:block;margin-top:6px;
-  }
+  .out .cred{font-size:12px;color:var(--gold);word-break:break-all;display:block;margin-top:6px}
   .out .goods{
-    border-left:3px solid var(--klein);padding:10px 14px;margin-top:10px;
-    background:var(--bone);font-size:14px;
+    border-left:3px solid var(--klein);padding:12px 15px;margin-top:12px;
+    background:var(--bone);font-size:14px;font-style:italic;
   }
-  .txlink{font-family:ui-monospace,Menlo,monospace;font-size:12.5px}
+  .txlink{font-size:12.5px}
 
-  /* the signature: consensus refusal stamp */
+  /* privacy meter: what the server learns */
+  .knows{
+    margin:2px 0 24px;padding:16px 20px;border:1px dashed var(--gold);background:var(--paper);
+  }
+  .knows .k{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-2)}
+  .knows .row{display:flex;justify-content:space-between;gap:14px;margin-top:8px;font-size:13.5px}
+  .knows .no{color:var(--ink-2)}
+  .knows .no b{color:var(--danger)}
+  .knows .yes b{color:var(--gold)}
+
   .refusal{
     display:none;margin:22px auto 4px;width:fit-content;
     padding:16px 30px;border:4px double var(--klein);color:var(--klein);
@@ -90,7 +123,6 @@
   .refusal.show{display:block;animation:slam .28s cubic-bezier(.2,1.6,.4,1) both}
   @keyframes slam{from{transform:rotate(-5deg) scale(2.4);opacity:0}to{transform:rotate(-5deg) scale(1);opacity:1}}
 
-  /* ---- machine room (right) ---- */
   .room{
     position:sticky;top:24px;align-self:start;
     background:var(--ink);color:var(--bone);padding:0 0 18px;
@@ -99,29 +131,31 @@
   .room h2{
     font-size:12px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;
     padding:16px 20px;border-bottom:1px solid #2E2C29;color:#B9B4AA;
+    display:flex;align-items:center;gap:8px;
   }
   .room h2 b{color:var(--bone)}
+  .room h2 .count{margin-left:auto;color:#7A756C;font-weight:800;letter-spacing:.1em}
   #feed{
     overflow-y:auto;padding:14px 20px 6px;flex:1;
-    font-family:ui-monospace,"SF Mono","JetBrains Mono",Menlo,monospace;
     font-size:12.5px;line-height:1.7;
   }
   .ln{padding:5px 10px;margin-bottom:6px;border-left:2px solid #2E2C29;color:#CFCABF;word-break:break-word}
   .ln .t{color:#7A756C;margin-right:10px}
   .ln.chain{border-left-color:var(--klein);color:var(--bone);background:#191C26}
-  .ln.chain::before{content:"ON-CHAIN ";color:#5B82E8;font-weight:700;letter-spacing:.1em;font-size:10.5px;margin-right:8px}
-  .ln.err{border-left-color:#8A2B1D;color:#E8C4BC}
+  .ln.chain::before{content:"ON-CHAIN ";color:var(--chain);font-weight:700;letter-spacing:.1em;font-size:10.5px;margin-right:8px}
+  .ln.err{border-left-color:var(--danger);color:#E8C4BC}
   .ln a{color:#7FA0F2;border-bottom-color:#7FA0F2}
   .ln.pulse{animation:pulse 1.1s ease-out 1}
   @keyframes pulse{0%{background:#22305C}100%{background:#191C26}}
+  .empty{color:#5C574F;font-style:italic;padding:6px 10px}
 
   footer{
     margin:56px 40px 0;padding-top:18px;border-top:1px solid var(--line);
-    font-size:12.5px;color:var(--ink-2);max-width:1280px;
+    font-size:12.5px;color:var(--ink-2);max-width:1320px;
   }
   footer b{color:var(--ink)}
   @media (prefers-reduced-motion:reduce){
-    .refusal.show,.ln.pulse{animation:none}
+    .refusal.show,.ln.pulse,.live-dot{animation:none}
   }
   @media (max-width:640px){
     header,.hero,.grid,footer{padding-left:20px;padding-right:20px}
@@ -131,40 +165,49 @@
 <body>
 
 <header>
-  <span class="stamp">riverrun <b>▸ soroban</b></span>
-  <span class="meta">pq402 · demo ao vivo · <span class="chip" id="net">testnet</span></span>
-  <span class="meta right">contrato <span class="chip txlink" id="contract">…</span></span>
+  <span class="stamp">pq402 <b>▸ soroban</b></span>
+  <span class="meta"><span class="live-dot"></span>demo ao vivo · <span class="chip" id="net">testnet</span></span>
+  <span class="meta right">verificador <span class="chip mono" id="contract">…</span></span>
 </header>
 
 <section class="hero">
+  <div class="kicker">credencial pós-quântica · pagamento x402 · anonimato pela chain</div>
   <h1>O agente paga.<br>A prova é pós-quântica.<br><em>O juiz é a chain.</em></h1>
-  <p>Três cliques, nenhum truque: cada passo azul na sala de máquinas é uma transação ou
-     consulta real na Stellar testnet, com link pro explorer. O servidor nunca decide nada
-     sozinho.</p>
+  <p>Três cliques, nenhum truque. Cada linha azul na sala de máquinas é uma transação
+     real na Stellar testnet, com link pro explorer. A prova é um STARK hash-based —
+     nada que o Shor quebre — e quem a julga é um contrato Soroban, nunca este servidor.</p>
+
+  <div class="spec">
+    <div class="cell"><div class="k">Sistema de prova</div><div class="v">Circle STARK<br><b>hash-based</b></div></div>
+    <div class="cell"><div class="k">Trusted setup</div><div class="v"><b>nenhum</b></div></div>
+    <div class="cell"><div class="k">Ameaça quântica</div><div class="v">Shor <b>não aplica</b></div></div>
+    <div class="cell"><div class="k">Prova de produção</div><div class="v">~79 KB · <b>40 queries</b></div></div>
+    <div class="cell"><div class="k">Verificado em</div><div class="v"><b>contrato Soroban</b><br>não no servidor</div></div>
+  </div>
 </section>
 
 <div class="grid">
   <div>
-    <div class="act gold" id="act1">
-      <span class="n">1</span>
+    <div class="act gold armed" id="act1">
+      <span class="n"><span>1</span></span>
       <h2>Emitir a credencial</h2>
-      <p class="exp">Um secret novo vira um <b>leaf</b> pelo prover real (Poseidon2-M31). O emissor
-         registra o leaf. O secret nunca sai do agente.</p>
+      <p class="exp">Um secret novo vira um <b>leaf</b> pelo prover real (Poseidon2 sobre Mersenne-31).
+         O emissor registra o leaf. O secret nunca sai do agente.</p>
       <button id="b1">Emitir credencial</button>
       <div class="out" id="o1"></div>
     </div>
 
     <div class="act klein" id="act2">
-      <span class="n">2</span>
+      <span class="n"><span>2</span></span>
       <h2>O agente paga a API</h2>
-      <p class="exp">402 → prova STARK de produção (40 queries, ~11ms) → o <b>contrato</b> verifica
+      <p class="exp">402 → prova STARK de produção (40 queries, ~11 ms) → o <b>contrato</b> verifica
          e queima o nullifier na mesma transação → conteúdo pago liberado.</p>
       <button id="b2" disabled>Pagar com prova</button>
       <div class="out" id="o2"></div>
     </div>
 
     <div class="act" id="act3">
-      <span class="n">3</span>
+      <span class="n"><span>3</span></span>
       <h2>Tentar roubar: reusar a mesma prova</h2>
       <p class="exp">A mesma prova, byte a byte, de novo. O servidor recusa. E ainda que o servidor
          fosse desonesto: perguntamos <b>direto ao contrato</b>, e o consenso responde.</p>
@@ -172,37 +215,51 @@
       <div class="refusal" id="stamp">Recusado pelo consenso<small>spend → false · 793× mais barato que verificar</small></div>
       <div class="out" id="o3"></div>
     </div>
+
+    <div class="knows">
+      <div class="k">O teto do que este servidor sabe</div>
+      <div class="row yes"><span>que um pagamento válido e único aconteceu</span><b>sim</b></div>
+      <div class="row no"><span>o secret do agente</span><b>nunca</b></div>
+      <div class="row no" id="know-leaf"><span>qual credencial (leaf) — no modo <span class="mono">crowd</span></span><b>não</b></div>
+    </div>
   </div>
 
   <aside class="room" aria-live="polite">
-    <h2>sala de máquinas · <b>tudo verificável</b></h2>
-    <div id="feed"></div>
+    <h2>sala de máquinas · <b>tudo verificável</b><span class="count" id="count">0 passos</span></h2>
+    <div id="feed"><div class="empty">aguardando o primeiro clique…</div></div>
   </aside>
 </div>
 
 <footer>
   <b>Escopo honesto:</b> o secret do agente vive no booth só pra demo (em produção, no cliente:
-  <span class="txlink">stellar agent-pay --pq-secret</span>). As duas lanes são reais: o pagamento
+  <span class="mono">stellar agent-pay --pq-secret</span>). As duas lanes são reais: o pagamento
   liquida em USDC pelo facilitador e a credencial é julgada por um contrato Soroban, que queima o
   nullifier. O único passo somente-leitura é a checagem de replay, rotulada como simulação porque
-  é isso que ela é. O leaf é entrada pública, então o servidor sabe QUAL credencial pagou;
-  esconder isso é roadmap documentado, não entregue aqui.
+  é isso que ela é. Neste modo o leaf é entrada pública, então o servidor sabe qual credencial
+  pagou; o modo <span class="mono">crowd</span> (deployado, <span class="mono">./demo-crowd.sh</span>)
+  remove isso — o servidor aprende só a participação no conjunto.
 </footer>
 
 <script>
 const feed = document.getElementById("feed");
 const $ = (id) => document.getElementById(id);
+let stepCount = 0;
+
+function bumpCount(){ $("count").textContent = stepCount + (stepCount === 1 ? " passo" : " passos"); }
 
 function log(label, opts = {}) {
+  if (feed.querySelector(".empty")) feed.innerHTML = "";
+  const onchain = opts.onchain || Boolean(opts.explorer); // a step with a tx link IS on-chain
   const ln = document.createElement("div");
-  ln.className = "ln" + (opts.onchain ? " chain pulse" : "") + (opts.err ? " err" : "");
+  ln.className = "ln" + (onchain ? " chain pulse" : "") + (opts.err ? " err" : "");
   const t = new Date().toLocaleTimeString("pt-BR");
   let html = `<span class="t">${t}</span>${label}`;
   if (opts.ms != null) html += ` <span class="t">+${opts.ms}ms</span>`;
-  if (opts.explorer) html += ` <a href="${opts.explorer}" target="_blank" rel="noopener">tx ${opts.tx.slice(0,8)}…</a>`;
+  if (opts.explorer && opts.tx) html += ` <a href="${opts.explorer}" target="_blank" rel="noopener">tx ${opts.tx.slice(0,8)}…</a>`;
   ln.innerHTML = html;
   feed.appendChild(ln);
   feed.scrollTop = feed.scrollHeight;
+  stepCount++; bumpCount();
 }
 
 async function api(path) {
@@ -216,6 +273,7 @@ function busy(btn, on, txt) {
   btn.disabled = on;
   if (txt) btn.textContent = on ? txt : btn.dataset.label;
 }
+function arm(actId){ document.querySelectorAll(".act").forEach(a=>a.classList.remove("armed")); if(actId) $(actId).classList.add("armed"); }
 
 for (const id of ["b1","b2","b3"]) $(id).dataset.label = $(id).textContent;
 
@@ -225,8 +283,9 @@ $("b1").onclick = async () => {
     log("emitindo credencial: secret novo → prover real → registro");
     const r = await api("/api/issue");
     r.steps.forEach(s => log(s.label, s));
-    $("o1").innerHTML = `<span class="ok">credencial emitida.</span><span class="cred">leaf ${r.leaf.slice(0,48)}…</span>`;
-    $("b2").disabled = false;
+    $("o1").innerHTML = `<span class="ok">credencial emitida.</span><span class="cred mono">leaf ${r.leaf.slice(0,48)}…</span>`;
+    $("act1").classList.add("done");
+    $("b2").disabled = false; arm("act2");
     busy($("b1"), false);
   } catch (e) { log("erro: " + e.message, {err:true}); busy($("b1"), false); }
 };
@@ -239,9 +298,10 @@ $("b2").onclick = async () => {
     r.steps.forEach(s => log(s.label, s));
     $("o2").innerHTML =
       `<span class="ok">pago e verificado pelo consenso.</span> ` +
-      `<a class="txlink" href="${r.explorer}" target="_blank" rel="noopener">queima do nullifier: ${r.burn_tx.slice(0,10)}…</a>` +
+      `<a class="txlink mono" href="${r.explorer}" target="_blank" rel="noopener">queima do nullifier: ${r.burn_tx.slice(0,10)}…</a>` +
       `<div class="goods">${r.premium.premium}</div>`;
-    $("b3").disabled = false;
+    $("act2").classList.add("done");
+    $("b3").disabled = false; arm("act3");
     busy($("b2"), false);
   } catch (e) { log("erro: " + e.message, {err:true}); busy($("b2"), false); }
 };
@@ -254,6 +314,7 @@ $("b3").onclick = async () => {
     r.steps.forEach(s => log(s.label, s));
     if (r.chain_verdict === "false") {
       $("stamp").classList.add("show");
+      $("act3").classList.add("done"); arm(null);
       $("o3").innerHTML = `<span class="ok">o contrato respondeu <b>false</b>: nullifier já queimado. Nem o dono do servidor consegue reusar.</span>`;
     } else {
       $("o3").textContent = "veredito inesperado: " + r.chain_verdict;
@@ -265,7 +326,7 @@ $("b3").onclick = async () => {
 fetch("/api/config").then(r => r.json()).then(c => {
   $("contract").textContent = c.contract.slice(0, 8) + "…";
   $("net").textContent = c.network;
-  log(`booth conectado: contrato ${c.contract} (${c.network})`);
+  log(`booth conectado: verificador ${c.contract} (${c.network})`);
 });
 </script>
 </body>
