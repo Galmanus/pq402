@@ -1,7 +1,8 @@
-# pq402
+# pq402 — post-quantum credentials for x402 payments on Stellar
 
-**An API that charges an AI agent, checks it is allowed to buy, and never
-learns which buyer it was.**
+**A post-quantum credential gate for agentic payments: an API charges an AI
+agent, a Soroban contract checks it is allowed to buy with a hash-based STARK
+that survives Shor — and never learns which buyer it was.**
 
 Stellar Summit SP 2026 · Payments and Agent Tooling (SDF DevEx) ·
 sub-lane 3A, Agentic Payments (x402 / MPP)
